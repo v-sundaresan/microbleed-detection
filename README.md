@@ -15,7 +15,7 @@ PyTorch 1.2.0
 
 #### Method:
 <img
-src="images/main_architecture_final.png"
+src="images/Graphical_abstract.png"
 alt="Candidate detection and discrimination steps for CMB detection."
 />
 
