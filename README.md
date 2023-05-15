@@ -45,7 +45,7 @@ Also refer: https://www.frontiersin.org/articles/10.3389/fninf.2021.777828/full
 
 #### Citation:
 
-@article{sundaresan2021automated,
+```@article{sundaresan2021automated,
   title={Automated Detection of Cerebral Microbleeds on MR images using Knowledge Distillation Framework},
   author={Sundaresan, Vaanathi and Arthofer, Christoph and Zamboni, Giovanna and Murchison, Andrew G and Dineen, Robert A and Rothwell, Peter M and Auer, Dorothee P and Wang, Chaoyue and Miller, Karla L and Tendler, Benjamin C and others},
   journal={medRxiv},
