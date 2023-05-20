@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#   Copyright (C) 2016 University of Oxford
+#   Copyright (C) 2020 University of Oxford
 #   SHBASECOPYRIGHT
 
 from __future__ import absolute_import
