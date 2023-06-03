@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9292a460-f28f-43ff-a767-5132c6e2b997" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/microbleednet/scripts/microbleednet" beforeDir="false" afterPath="$PROJECT_DIR$/microbleednet/scripts/microbleednet" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microbleednet/scripts/prepare_microbleednet_data" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
