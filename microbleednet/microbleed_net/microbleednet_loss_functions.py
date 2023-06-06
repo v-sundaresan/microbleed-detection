@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-#   Copyright (C) 2016 University of Oxford
-#   SHBASECOPYRIGHT
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -13,6 +9,11 @@ from torch.nn.modules.loss import _Loss, _WeightedLoss
 import numpy as np
 from torch.autograd import Variable
 
+#=========================================================================================
+# Microbleednet loss functions
+# Vaanathi Sundaresan
+# 09-01-2023
+#=========================================================================================
 
 class DiceLoss(_WeightedLoss):
     def __init__(self, weight=None):

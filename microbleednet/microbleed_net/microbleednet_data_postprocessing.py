@@ -1,14 +1,9 @@
-
-#!/usr/bin/env python
-#   Copyright (C) 2016 University of Oxford
-#   SHBASECOPYRIGHT
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-from skimage.measure import label
+from microbleednet.microbleed_net import microbleednet_data_preprocessing
 import nibabel as nib
 from valdo_utils import *
 import glob
@@ -19,7 +14,15 @@ from skimage.filters import frangi
 from sklearn.cluster import KMeans
 from scipy.ndimage import morphology, binary_fill_holes
 
+#=========================================================================================
+# Microbleednet data postprocessing function
+# Vaanathi Sundaresan
+# 10-01-2023
+#=========================================================================================
+
+
 def vessel_detection2d(inp_images2d, brain):
+
     im1 = np.copy(inp_images2d)
     frangi_output_volume = np.zeros([im1.shape[0], im1.shape[1], im1.shape[2]])
     label_image_volume = np.zeros([im1.shape[0], im1.shape[1], im1.shape[2]])

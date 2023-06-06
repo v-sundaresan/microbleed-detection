@@ -3,14 +3,17 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-from microbleednet.microbleed_net import (microbleednet_train_function, microbleednet_test_function,
-                              microbleednet_cross_validate, microbleednet_finetune)
+from microbleednet.microbleed_net import (microbleednet_cdet_train_function,
+                                          microbleednet_cdisc_train_function,
+                                          microbleednet_test_function,
+                                          microbleednet_cdet_cross_validate, microbleednet_cdisc_cross_validate,
+                                          microbleednet_cdet_finetune, microbleednet_cdisc_finetune)
 import glob
 
 #=========================================================================================
 # microbleednet commands function
 # Vaanathi Sundaresan
-# 10-03-2021, Oxford
+# 10-01-2023
 #=========================================================================================
 
 
@@ -28,11 +31,11 @@ def train(args):
     if not os.path.isdir(inp_dir):
         raise ValueError(inp_dir + ' does not appear to be a valid input directory')
 
-    input_flair_paths = glob.glob(os.path.join(inp_dir,'*_FLAIR.nii')) + \
-                        glob.glob(os.path.join(inp_dir,'*_FLAIR.nii.gz'))
+    input_paths = glob.glob(os.path.join(inp_dir, '*_preproc.nii')) + \
+                  glob.glob(os.path.join(inp_dir, '*_preproc.nii.gz'))
 
-    if len(input_flair_paths) == 0:
-        raise ValueError(inp_dir + ' does not contain any FLAIR images / filenames NOT in required format')
+    if len(input_paths) == 0:
+        raise ValueError(inp_dir + ' does not contain any preprocessed input images / filenames NOT in required format')
 
     if os.path.isdir(args.model_dir) is False:
         raise ValueError(args.model_dir + ' does not appear to be a valid directory')
@@ -42,35 +45,11 @@ def train(args):
         raise ValueError(args.label_dir + ' does not appear to be a valid directory')
     label_dir = args.label_dir
 
-    if args.loss_function == 'weighted':
-        if args.gmdist_dir is None:
-            raise ValueError('-gdir must be provided when using -loss is "weighted"!')
-        gmdist_dir = args.gmdist_dir
-        if os.path.isdir(gmdist_dir) is False:
-            raise ValueError(gmdist_dir + ' does not appear to be a valid GM distance files directory')
-
-    if args.loss_function == 'weighted':
-        if args.ventdist_dir is None:
-            raise ValueError('-vdir must be provided when using -loss is "weighted"!')
-        ventdist_dir = args.ventdist_dir
-        if os.path.isdir(ventdist_dir) is False:
-            raise ValueError(ventdist_dir + ' does not appear to be a valid ventricle distance files directory')
-    else:
-        gmdist_dir = None
-        ventdist_dir = None
-
     # Create a list of dictionaries containing required filepaths for the input subjects
     subj_name_dicts = []
-    for l in range(len(input_flair_paths)):
-        basepath = input_flair_paths[l].split("_FLAIR.nii")[0]
+    for l in range(len(input_paths)):
+        basepath = input_paths[l].split("_preproc.nii")[0]
         basename = basepath.split(os.sep)[-1]
-
-        if os.path.isfile(basepath + '_T1.nii.gz'):
-            t1_path_name = basepath + '_T1.nii.gz'
-        elif os.path.isfile(basepath + '_T1.nii'):
-            t1_path_name = basepath + '_T1.nii'
-        else:
-            raise ValueError('T1 file does not exist for ' + basename)
 
         print(os.path.join(label_dir, basename + '_manualmask.nii.gz'), flush=True)
         if os.path.isfile(os.path.join(label_dir, basename + '_manualmask.nii.gz')):
@@ -80,31 +59,8 @@ def train(args):
         else:
             raise ValueError('Manual lesion mask does not exist for ' + basename)
 
-        if args.loss_function == 'weighted':
-            weighted = True
-            if os.path.isfile(os.path.join(gmdist_dir, basename + '_gmdist.nii.gz')):
-                gmdist_path_name = os.path.join(gmdist_dir, basename + '_gmdist.nii.gz')
-            elif os.path.isfile(os.path.join(gmdist_dir, basename + '_gmdist.nii')):
-                gmdist_path_name = os.path.join(gmdist_dir, basename + '_gmdist.nii')
-            else:
-                raise ValueError('GM distance file does not exist for ' + basename)
-
-            if os.path.isfile(os.path.join(ventdist_dir,basename + '_ventdist.nii.gz')):
-                ventdist_path_name = os.path.join(ventdist_dir, basename + '_ventdist.nii.gz')
-            elif os.path.isfile(os.path.join(ventdist_dir,basename + '_ventdist.nii')):
-                ventdist_path_name = os.path.join(ventdist_dir, basename + '_ventdist.nii')
-            else:
-                raise ValueError('Ventricle distance file does not exist for ' + basename)
-        else:
-            weighted = False
-            gmdist_path_name = None
-            ventdist_path_name = None
-
-        subj_name_dict = {'flair_path': input_flair_paths[l],
-                          't1_path': t1_path_name,
+        subj_name_dict = {'flair_path': input_paths[l],
                           'gt_path': gt_path_name,
-                          'gmdist_path': gmdist_path_name,
-                          'ventdist_path': ventdist_path_name,
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
 
@@ -116,9 +72,6 @@ def train(args):
 
     if args.optimizer not in ['adam', 'sgd']:
         raise ValueError('Invalid option for Optimizer: Valid options: adam, sgd')
-
-    if args.acq_plane not in ['axial', 'sagittal', 'coronal', 'all']:
-        raise ValueError('Invalid option for acquisition plane: Valid options: axial, sagittal, coronal, all')
 
     if isinstance(args.lr_sch_gamma, float) is False:
         raise ValueError('Learning rate reduction factor must be a float value')
@@ -153,15 +106,15 @@ def train(args):
     # Create the training parameters dictionary
     training_params = {'Learning_rate': args.init_learng_rate,
                        'Optimizer': args.optimizer,
-                       'Epsilon' :args.epsilon,
-                       'Momentum' : args.momentum,
+                       'Epsilon':args.epsilon,
+                       'Momentum': args.momentum,
                        'LR_Milestones': args.lr_sch_mlstone,
                        'LR_red_factor': args.lr_sch_gamma,
-                       'Acq_plane': args.acq_plane,
                        'Train_prop': args.train_prop,
                        'Batch_size': args.batch_size,
                        'Num_epochs': args.num_epochs,
                        'Batch_factor': args.batch_factor,
+                       'Patch_size': args.patch_size,
                        'Patience': args.early_stop_val,
                        'Aug_factor': args.aug_factor,
                        'EveryN': args.cp_everyn_N,
@@ -178,8 +131,15 @@ def train(args):
         raise ValueError('Invalid option for checkpoint save type: Valid options: best, last, everyN')
 
     # Training main function call
-    models = microbleednet_train_function.main(subj_name_dicts, training_params, aug=args.data_augmentation, weighted=weighted,
-         save_cp=True, save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose, dir_cp=model_dir)
+    if args.cand_detection:
+        models = microbleednet_cdet_train_function.main(subj_name_dicts, training_params, aug=args.data_augmentation,
+                                                        save_cp=True, save_wei=save_wei, save_case=args.cp_save_type,
+                                                        verbose=args.verbose, dir_cp=model_dir)
+
+    if args.cand_discrimination:
+        models = microbleednet_cdisc_train_function.main(subj_name_dicts, training_params, aug=args.data_augmentation,
+                                                         save_cp=True, save_wei=save_wei, save_case=args.cp_save_type,
+                                                         verbose=args.verbose, dir_cp=model_dir)
 
 
 ##########################################################################################
@@ -197,32 +157,22 @@ def evaluate(args):
     if not os.path.isdir(inp_dir):
         raise ValueError(inp_dir + ' does not appear to be a valid input directory')
 
-    input_flair_paths = glob.glob(os.path.join(inp_dir, '*_FLAIR.nii')) + \
-                        glob.glob(os.path.join(inp_dir, '*_FLAIR.nii.gz'))
+    input_paths = glob.glob(os.path.join(inp_dir, '*_preproc.nii')) + \
+                  glob.glob(os.path.join(inp_dir, '*_preproc.nii.gz'))
 
-    if len(input_flair_paths) == 0:
-        raise ValueError(inp_dir + ' does not contain any FLAIR images / filenames NOT in required format')
+    if len(input_paths) == 0:
+        raise ValueError(inp_dir + ' does not contain any preprocessed input images / filenames NOT in required format')
 
     if os.path.isdir(out_dir) is False:
         raise ValueError(out_dir + ' does not appear to be a valid directory')
 
     # Create a list of dictionaries containing required filepaths for the test subjects
     subj_name_dicts = []
-    for l in range(len(input_flair_paths)):
-        basepath = input_flair_paths[l].split("_FLAIR.nii")[0]
+    for l in range(len(input_paths)):
+        basepath = input_paths[l].split("_preproc.nii")[0]
         basename = basepath.split(os.sep)[-1]
 
-        if os.path.isfile(basepath + '_T1.nii.gz'):
-            t1_path_name = basepath + '_T1.nii.gz'
-        elif os.path.isfile(basepath + '_T1.nii'):
-            t1_path_name = basepath + '_T1.nii'
-        else:
-            raise ValueError('T1 file does not exist for ' + basename)
-
-        subj_name_dict = {'flair_path': input_flair_paths[l],
-                          't1_path': t1_path_name,
-                          'gmdist_path': None,
-                          'ventdist_path': None,
+        subj_name_dict = {'flair_path': input_paths[l],
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
 
@@ -231,28 +181,17 @@ def evaluate(args):
 
     if args.pretrained_model == 'True':
         model_name = None
-        if args.pretrained_model_name == 'mwsc':
-            modeldir = os.path.expandvars('$FSLDIR/data/microbleednet/models/mwsc')
-            if not os.path.exists(modeldir):
-                modeldir = os.environ.get('microbleednet_PRETRAINED_MODEL_PATH', None)
-                if modeldir is None:
-                    raise RuntimeError('Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/mwsc/model')
-        elif args.pretrained_model_name == 'ukbb':
-            modeldir = os.path.expandvars('$FSLDIR/data/microbleednet/models/ukbb')
-            if not os.path.exists(modeldir):
-                modeldir = os.environ.get('microbleednet_PRETRAINED_MODEL_PATH', None)
-                if modeldir is None:
-                    raise RuntimeError('Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/ukbb/model')
-        else:
-            raise ValueError('Invalid name for Pretrained model: Valid options: mwsc, ukbb')
+        model_dir = os.path.expandvars('$FSLDIR/data/microbleednet/models')
+        if not os.path.exists(model_dir):
+            model_dir = os.environ.get('microbleednet_PRETRAINED_MODEL_PATH', None)
+            if model_dir is None:
+                raise RuntimeError('Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/mwsc/model')
     else:
-        if os.path.isfile(args.model_name + '_axial.pth') is False or \
-                os.path.isfile(args.model_name + '_sagittal.pth') is False or \
-                os.path.isfile(args.model_name + '_coronal.pth') is False:
+        if os.path.isfile(args.model_name + '_cdet.pth') is False or \
+                os.path.isfile(args.model_name + '_cdisc_student.pth') is False:
             raise ValueError('In directory ' + os.path.dirname(args.model_name) +
-                             ', ' + os.path.basename(args.model_name) + '_axial.pth or' +
-                             os.path.basename(args.model_name) + '_sagittal.pth or' +
-                             os.path.basename(args.model_name) + '_coronal.pth ' +
+                             ', ' + os.path.basename(args.model_name) + '_cdet.pth or' +
+                             os.path.basename(args.model_name) + '_cdisc_student.pth' +
                              'does not appear to be a valid model file')
         else:
             model_dir = os.path.dirname(args.model_name)
@@ -275,8 +214,8 @@ def evaluate(args):
 
     # Test main function call
     microbleednet_test_function.main(subj_name_dicts, eval_params, intermediate=args.intermediate,
-                               model_dir=model_dir, load_case=args.cp_load_type, output_dir=out_dir,
-                               verbose=args.verbose)
+                                     model_dir=model_dir, load_case=args.cp_load_type, output_dir=out_dir,
+                                     verbose=args.verbose)
 
 
 ##########################################################################################
@@ -293,49 +232,25 @@ def fine_tune(args):
     if not os.path.isdir(inp_dir):
         raise ValueError(inp_dir + ' does not appear to be a valid input directory')
 
-    input_flair_paths = glob.glob(os.path.join(inp_dir, '*_FLAIR.nii')) + \
-                        glob.glob(os.path.join(inp_dir, '*_FLAIR.nii.gz'))
+    input_paths = glob.glob(os.path.join(inp_dir, '*_preproc.nii')) + \
+                  glob.glob(os.path.join(inp_dir, '*_preproc.nii.gz'))
 
-    if len(input_flair_paths) == 0:
-        raise ValueError(inp_dir + ' does not contain any FLAIR images / filenames NOT in required format')
+    if len(input_paths) == 0:
+        raise ValueError(inp_dir + ' does not contain any preprocessed input images / filenames NOT in required format')
 
-    if os.path.isdir(args.output_dir) is False:
-        raise ValueError(args.output_dir + ' does not appear to be a valid directory')
     out_dir = args.output_dir
+    if os.path.isdir(out_dir) is False:
+        raise ValueError(out_dir + ' does not appear to be a valid directory')
 
     if os.path.isdir(args.label_dir) is False:
         raise ValueError(args.label_dir + ' does not appear to be a valid directory')
     label_dir = args.label_dir
 
-    if args.loss_function == 'weighted':
-        if args.gmdist_dir is None:
-            raise ValueError('-gdir must be provided when using -loss is "weighted"!')
-        gmdist_dir = args.gmdist_dir
-        if os.path.isdir(gmdist_dir) is False:
-            raise ValueError(gmdist_dir + ' does not appear to be a valid GM distance files directory')
-
-    if args.loss_function == 'weighted':
-        if args.ventdist_dir is None:
-            raise ValueError('-vdir must be provided when using -loss is "weighted"!')
-        ventdist_dir = args.ventdist_dir
-        if os.path.isdir(ventdist_dir) is False:
-            raise ValueError(ventdist_dir + ' does not appear to be a valid ventricle distance files directory')
-    else:
-        gmdist_dir = None
-        ventdist_dir = None
-
     # Create a list of dictionaries containing required filepaths for the fine-tuning subjects
     subj_name_dicts = []
-    for l in range(len(input_flair_paths)):
-        basepath = input_flair_paths[l].split("_FLAIR.nii")[0]
+    for l in range(len(input_paths)):
+        basepath = input_paths[l].split("_preproc.nii")[0]
         basename = basepath.split(os.sep)[-1]
-
-        if os.path.isfile(basepath + '_T1.nii.gz'):
-            t1_path_name = basepath + '_T1.nii.gz'
-        elif os.path.isfile(basepath + '_T1.nii'):
-            t1_path_name = basepath + '_T1.nii'
-        else:
-            raise ValueError('T1 file does not exist for ' + basename)
 
         if os.path.isfile(os.path.join(label_dir, basename + '_manualmask.nii.gz')):
             gt_path_name = os.path.join(label_dir, basename + '_manualmask.nii.gz')
@@ -344,31 +259,8 @@ def fine_tune(args):
         else:
             raise ValueError('Manual lesion mask does not exist for ' + basename)
 
-        if args.loss_function == 'weighted':
-            weighted = True
-            if os.path.isfile(os.path.join(gmdist_dir, basename + '_gmdist.nii.gz')):
-                gmdist_path_name = os.path.join(gmdist_dir, basename + '_gmdist.nii.gz')
-            elif os.path.isfile(os.path.join(gmdist_dir, basename + '_gmdist.nii')):
-                gmdist_path_name = os.path.join(gmdist_dir, basename + '_gmdist.nii')
-            else:
-                raise ValueError('GM distance file does not exist for ' + basename)
-
-            if os.path.isfile(os.path.join(ventdist_dir, basename + '_ventdist.nii.gz')):
-                ventdist_path_name = os.path.join(ventdist_dir, basename + '_ventdist.nii.gz')
-            elif os.path.isfile(os.path.join(ventdist_dir, basename + '_ventdist.nii')):
-                ventdist_path_name = os.path.join(ventdist_dir, basename + '_ventdist.nii')
-            else:
-                raise ValueError('Ventricle distance file does not exist for ' + basename)
-        else:
-            weighted = False
-            gmdist_path_name = None
-            ventdist_path_name = None
-
-        subj_name_dict = {'flair_path': input_flair_paths[l],
-                          't1_path': t1_path_name,
-                          'gt_path':gt_path_name,
-                          'gmdist_path': gmdist_path_name,
-                          'ventdist_path': ventdist_path_name,
+        subj_name_dict = {'flair_path': input_paths[l],
+                          'gt_path': gt_path_name,
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
 
@@ -380,9 +272,6 @@ def fine_tune(args):
 
     if args.optimizer not in ['adam', 'sgd']:
         raise ValueError('Invalid option for Optimizer: Valid options: adam, sgd')
-
-    if args.acq_plane not in ['axial', 'sagittal', 'coronal', 'all']:
-        raise ValueError('Invalid option for acquisition plane: Valid options: axial, sagittal, coronal, all')
 
     if isinstance(args.lr_sch_gamma, float) is False:
         raise ValueError('Learning rate reduction factor must be a float value')
@@ -421,46 +310,35 @@ def fine_tune(args):
 
     if args.pretrained_model == 'True':
         model_name = None
-        if args.pretrained_model_name == 'mwsc':
-            modeldir = os.path.expandvars('$FSLDIR/data/microbleednet/models/mwsc')
-            if not os.path.exists(modeldir):
-                modeldir = os.environ.get('microbleednet_PRETRAINED_MODEL_PATH', None)
-                if modeldir is None:
-                    raise RuntimeError('Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/mwsc/model')
-        elif args.pretrained_model_name == 'ukbb':
-            modeldir = os.path.expandvars('$FSLDIR/data/microbleednet/models/ukbb')
-            if not os.path.exists(modeldir):
-                modeldir = os.environ.get('microbleednet_PRETRAINED_MODEL_PATH', None)
-                if modeldir is None:
-                    raise RuntimeError('Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/ukbb/model')
-        else:
-            raise ValueError('Invalid name for Pretrained model: Valid options: mwsc, ukbb')
+        model_dir = os.path.expandvars('$FSLDIR/data/microbleednet/models')
+        if not os.path.exists(model_dir):
+            model_dir = os.environ.get('microbleednet_PRETRAINED_MODEL_PATH', None)
+            if model_dir is None:
+                raise RuntimeError(
+                    'Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/mwsc/model')
     else:
-        if os.path.isfile(args.model_name + '_axial.pth') is False or \
-                os.path.isfile(args.model_name + '_sagittal.pth') is False or \
-                os.path.isfile(args.model_name + '_coronal.pth') is False:
+        if os.path.isfile(args.model_name + '_cdet.pth') is False or \
+                os.path.isfile(args.model_name + '_cdisc_student.pth') is False:
             raise ValueError('In directory ' + os.path.dirname(args.model_name) +
-                             ', ' + os.path.basename(args.model_name) + '_axial.pth or' +
-                             os.path.basename(args.model_name) + '_sagittal.pth or' +
-                             os.path.basename(args.model_name) + '_coronal.pth ' +
-                              'does not appear to be a valid model file')
+                             ', ' + os.path.basename(args.model_name) + '_cdet.pth or' +
+                             os.path.basename(args.model_name) + '_cdisc_student.pth' +
+                             'does not appear to be a valid model file')
         else:
             model_dir = os.path.dirname(args.model_name)
             model_name = os.path.basename(args.model_name)
 
-
     # Create the fine-tuning parameters dictionary
     finetuning_params = {'Finetuning_learning_rate': args.init_learng_rate,
                          'Optimizer': args.optimizer,
-                         'Epsilon' :args.epsilon,
-                         'Momentum' : args.momentum,
+                         'Epsilon': args.epsilon,
+                         'Momentum': args.momentum,
                          'LR_Milestones': args.lr_sch_mlstone,
                          'LR_red_factor': args.lr_sch_gamma,
-                         'Acq_plane': args.acq_plane,
                          'Train_prop': args.train_prop,
                          'Batch_size': args.batch_size,
                          'Num_epochs': args.num_epochs,
                          'Batch_factor': args.batch_factor,
+                         'Patch_size':args.patch_size,
                          'Patience': args.early_stop_val,
                          'Aug_factor': args.aug_factor,
                          'EveryN': args.cp_everyn_N,
@@ -481,7 +359,13 @@ def fine_tune(args):
             raise ValueError('-cp_n must be provided to specify the epoch for loading CP when using -cp_type is "everyN"!')
 
     # Fine-tuning main function call
-    microbleednet_finetune.main(subj_name_dicts, finetuning_params, aug=args.data_augmentation, weighted=weighted,
+    if args.cand_detection:
+        microbleednet_cdet_finetune.main(subj_name_dicts, finetuning_params, aug=args.data_augmentation, weighted=weighted,
+                          save_cp=True, save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
+                          model_dir=model_dir, dir_cp=out_dir)
+
+    if args.cand_discrimination:
+        microbleednet_cdisc_finetune.main(subj_name_dicts, finetuning_params, aug=args.data_augmentation, weighted=weighted,
                           save_cp=True, save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
                           model_dir=model_dir, dir_cp=out_dir)
 
@@ -499,11 +383,11 @@ def cross_validate(args):
     if not os.path.isdir(inp_dir):
         raise ValueError(inp_dir + ' does not appear to be a valid input directory')
 
-    input_flair_paths = glob.glob(os.path.join(inp_dir, '*_FLAIR.nii')) + \
-                        glob.glob(os.path.join(inp_dir, '*_FLAIR.nii.gz'))
+    input_paths = glob.glob(os.path.join(inp_dir, '*_preproc.nii')) + \
+                  glob.glob(os.path.join(inp_dir, '*_preproc.nii.gz'))
 
-    if len(input_flair_paths) == 0:
-        raise ValueError(inp_dir + ' does not contain any FLAIR images / filenames NOT in required format')
+    if len(input_paths) == 0:
+        raise ValueError(inp_dir + ' does not contain any preprocessed input images / filenames NOT in required format')
 
     if os.path.isdir(args.output_dir) is False:
         raise ValueError(args.output_dir + ' does not appear to be a valid directory')
@@ -522,35 +406,11 @@ def cross_validate(args):
     if args.resume_from_fold < 1:
         raise ValueError('Fold to resume cannot be 0 or negative')
 
-    if args.loss_function == 'weighted':
-        if args.gmdist_dir is None:
-            raise ValueError('-gdir must be provided when using -loss is "weighted"!')
-        gmdist_dir = args.gmdist_dir
-        if os.path.isdir(gmdist_dir) is False:
-            raise ValueError(gmdist_dir + ' does not appear to be a valid GM distance files directory')
-
-    if args.loss_function == 'weighted':
-        if args.ventdist_dir is None:
-            raise ValueError('-vdir must be provided when using -loss is "weighted"!')
-        ventdist_dir = args.ventdist_dir
-        if os.path.isdir(ventdist_dir) is False:
-            raise ValueError(ventdist_dir + ' does not appear to be a valid ventricle distance files directory')
-    else:
-        gmdist_dir = None
-        ventdist_dir = None
-
     # Create a list of dictionaries containing required filepaths for the input subjects
     subj_name_dicts = []
-    for l in range(len(input_flair_paths)):
-        basepath = input_flair_paths[l].split("_FLAIR.nii")[0]
+    for l in range(len(input_paths)):
+        basepath = input_paths[l].split("_FLAIR.nii")[0]
         basename = basepath.split(os.sep)[-1]
-
-        if os.path.isfile(basepath + '_T1.nii.gz'):
-            t1_path_name = basepath + '_T1.nii.gz'
-        elif os.path.isfile(basepath + '_T1.nii'):
-            t1_path_name = basepath + '_T1.nii'
-        else:
-            raise ValueError('T1 file does not exist for ' + basename)
 
         if os.path.isfile(os.path.join(label_dir, basename + '_manualmask.nii.gz')):
             gt_path_name = os.path.join(label_dir, basename + '_manualmask.nii.gz')
@@ -559,31 +419,8 @@ def cross_validate(args):
         else:
             raise ValueError('Manual lesion mask does not exist for ' + basename)
 
-        if args.loss_function == 'weighted':
-            weighted = True
-            if os.path.isfile(os.path.join(gmdist_dir, basename + '_gmdist.nii.gz')):
-                gmdist_path_name = os.path.join(gmdist_dir, basename + '_gmdist.nii.gz')
-            elif os.path.isfile(os.path.join(gmdist_dir, basename + '_gmdist.nii')):
-                gmdist_path_name = os.path.join(gmdist_dir, basename + '_gmdist.nii')
-            else:
-                raise ValueError('GM distance file does not exist for ' + basename)
-
-            if os.path.isfile(os.path.join(ventdist_dir, basename + '_ventdist.nii.gz')):
-                ventdist_path_name = os.path.join(ventdist_dir, basename + '_ventdist.nii.gz')
-            elif os.path.isfile(os.path.join(ventdist_dir, basename + '_ventdist.nii')):
-                ventdist_path_name = os.path.join(ventdist_dir, basename + '_ventdist.nii')
-            else:
-                raise ValueError('Ventricle distance file does not exist for ' + basename)
-        else:
-            weighted = False
-            gmdist_path_name = None
-            ventdist_path_name = None
-
-        subj_name_dict = {'flair_path': input_flair_paths[l],
-                          't1_path': t1_path_name,
+        subj_name_dict = {'flair_path': input_paths[l],
                           'gt_path': gt_path_name,
-                          'gmdist_path': gmdist_path_name,
-                          'ventdist_path': ventdist_path_name,
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
 
@@ -595,9 +432,6 @@ def cross_validate(args):
 
     if args.optimizer not in ['adam', 'sgd']:
         raise ValueError('Invalid option for Optimizer: Valid options: adam, sgd')
-
-    if args.acq_plane not in ['axial', 'sagittal', 'coronal', 'all']:
-        raise ValueError('Invalid option for acquisition plane: Valid options: axial, sagittal, coronal, all')
 
     if isinstance(args.lr_sch_gamma, float) is False:
         raise ValueError('Learning rate reduction factor must be a float value')
@@ -640,13 +474,13 @@ def cross_validate(args):
                  'fold': args.cv_fold,
                  'res_fold': args.resume_from_fold,
                  'Optimizer': args.optimizer,
-                 'Epsilon':args.epsilon,
+                 'Epsilon': args.epsilon,
                  'Momentum': args.momentum,
                  'LR_Milestones': args.lr_sch_mlstone,
                  'LR_red_factor': args.lr_sch_gamma,
-                 'Acq_plane': args.acq_plane,
                  'Train_prop': args.train_prop,
                  'Batch_size': args.batch_size,
+                 'Patch_size': args.patch_size,
                  'Num_epochs': args.num_epochs,
                  'Batch_factor': args.batch_factor,
                  'Patience': args.early_stop_val,
@@ -669,7 +503,15 @@ def cross_validate(args):
             raise ValueError('-cp_n must be provided to specify the epoch for loading CP when using -cp_type is "everyN"!')
 
     # Cross-validation main function call
-    microbleednet_cross_validate.main(subj_name_dicts, cv_params, aug=args.data_augmentation, weighted=weighted,
-                                intermediate=args.intermediate, save_cp=args.save_checkpoint, save_wei=save_wei,
-                                save_case=args.cp_save_type, verbose=args.verbose, dir_cp=out_dir,
-                                output_dir=out_dir)
+    if args.cand_detection:
+        microbleednet_cdet_cross_validate.main(subj_name_dicts, cv_params, aug=args.data_augmentation,
+                                               intermediate=args.intermediate, save_cp=args.save_checkpoint,
+                                               save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
+                                               dir_cp=out_dir, output_dir=out_dir)
+
+    if args.cand_discrimination:
+        microbleednet_cdisc_cross_validate.main(subj_name_dicts, cv_params, aug=args.data_augmentation,
+                                                intermediate=args.intermediate, save_cp=args.save_checkpoint,
+                                                save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
+                                                dir_cp=out_dir, output_dir=out_dir)
+
