@@ -5,7 +5,6 @@ from __future__ import print_function
 import numpy as np
 from microbleednet.microbleed_net import microbleednet_data_preprocessing
 import nibabel as nib
-from valdo_utils import *
 import glob
 import random
 from skimage.transform import resize

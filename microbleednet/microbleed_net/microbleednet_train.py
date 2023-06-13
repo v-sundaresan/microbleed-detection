@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import os
 from torch.utils.data import DataLoader
-from microbleednet.true_net import microbleednet_data_preparation
+from microbleednet.microbleed_net import microbleednet_data_preparation
 from microbleednet.utils import (microbleednet_dataset_utils, microbleednet_utils)
 
 #=========================================================================================
@@ -134,7 +134,7 @@ def validate_cdisc_teacher(testdata, model, model_class, batch_size, device, cri
             pwv = torch.from_numpy(pwv)
             pwv = pwv.to(device=device, dtype=torch.float32)
             loss = criterion(val_pred, yv, weight=pwv)
-            class_loss = loss = criterion(val_class_pred, y_class, weight=class_weights)
+            class_loss = criterion(val_class_pred, y_class, weight=class_weights)
             total_loss = loss + class_loss
             running_val_loss += total_loss.item()
             softmax = nn.Softmax()
@@ -155,6 +155,68 @@ def validate_cdisc_teacher(testdata, model, model_class, batch_size, device, cri
     print('Validation set: Average loss: ', val_av_loss, flush=True)
     print('Validation set: Average accuracy: ', val_dice, flush=True)
     return val_av_loss, val_dice, val_acc
+
+
+def validate_cdisc_student(testdata, smodel, batch_size, device, criterion, verbose=False):
+    """
+    :param testdata: ndarray
+    :param smodel: model
+    :param batch_size: int
+    :param device: cpu or gpu (.cuda())
+    :param criterion: loss function
+    :param weighted: bool, whether to apply spatial weights in loss function
+    :param verbose: bool, display debug messages
+    """
+    smodel.eval()
+    nsteps = max(testdata[0].shape[0] // batch_size, 1)
+    prob_array = np.array([])
+    gen_next_test_batch = microbleednet_utils.batch_generator(testdata, batch_size, shuffle=False)
+    dice_values = 0
+    dice_values = 0
+    val_batch_count = 0
+    running_val_loss = 0.0
+    with torch.no_grad():
+        for i in range(nsteps):
+            Xv, yv = next(gen_next_test_batch)
+            Xv = Xv.transpose(0, 4, 1, 2, 3)
+            if verbose:
+                print('Validation dimensions.......................................')
+                print(Xv.shape)
+                print(yv.shape)
+
+            Xv = torch.from_numpy(Xv)
+            Xv = Xv.to(device=device, dtype=torch.float32)
+            yv = torch.from_numpy(yv)
+            yv = yv.to(device=device, dtype=torch.double)
+
+            val_int, val_pred = smodel.forward(Xv)
+            if verbose:
+                print('Validation mask dimensions........')
+                print(val_pred.size())
+
+            val_class_pred = smodel(val_int)
+            y_class = yv[:, 1]
+            yv = torch.from_numpy(yv)
+            yv = yv.to(device=device, dtype=torch.double)
+            class_weights = y_class[:, 1] * 100
+            class_weights = torch.from_numpy(class_weights)
+            class_weights = class_weights.to(device=device, dtype=torch.float32)
+
+            total_loss = criterion(val_class_pred, y_class, weight=class_weights)
+            running_val_loss += total_loss.item()
+            #softmax = nn.Softmax()
+            #probs = softmax(val_pred)
+            pred_class = np.argmax(val_class_pred.cpu().detach().numpy(), axis=1)
+            acc_val = np.sum(pred_class == y_class) / batch_size
+
+            val_batch_count += 1
+
+    val_av_loss = (running_val_loss / val_batch_count)  # .cpu().numpy()
+    #val_dice = (dice_values / val_batch_count)  # .detach().cpu().numpy()
+    val_acc = (acc_val / val_batch_count)  # .detach().cpu().numpy()
+    print('Validation set: Average loss: ', val_av_loss, flush=True)
+    print('Validation set: Average accuracy: ', val_acc, flush=True)
+    return val_av_loss, val_acc
 
 
 def train_cdet(train_name_dicts, val_name_dicts, model, criterion, optimizer, scheduler, train_params,
@@ -366,7 +428,7 @@ def train_cdisc_teacher(train_name_dicts, val_name_dicts, model, model_class, cr
     aug_factor = train_params['Aug_factor']
     save_resume = train_params['SaveResume']
 
-    early_stopping = microbleednet_utils.EarlyStoppingModelCheckpointing(patience, verbose=verbose)
+    early_stopping = microbleednet_utils.EarlyStoppingModelCheckpointing2models(patience, verbose=verbose)
 
     num_iters = max(len(train_name_dicts) // batch_factor, 1)
     losses_train = []
@@ -498,9 +560,9 @@ def train_cdisc_teacher(train_name_dicts, val_name_dicts, model, model_class, cr
 
         if save_resume:
             if dir_checkpoint is not None:
-                ckpt_path = os.path.join(dir_checkpoint, 'tmp_model_cdet.pth')
+                ckpt_path = os.path.join(dir_checkpoint, 'tmp_model_cdisc.pth')
             else:
-                ckpt_path = os.path.join(os.getcwd(), 'tmp_model_cdet.pth')
+                ckpt_path = os.path.join(os.getcwd(), 'tmp_model_cdisc.pth')
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -514,13 +576,13 @@ def train_cdisc_teacher(train_name_dicts, val_name_dicts, model, model_class, cr
             }, ckpt_path)
 
         if save_checkpoint:
-            np.savez(os.path.join(dir_checkpoint, 'losses_cdet.npz'), train_loss=losses_train,
+            np.savez(os.path.join(dir_checkpoint, 'losses_cdisc.npz'), train_loss=losses_train,
                      val_loss=losses_val)
-            np.savez(os.path.join(dir_checkpoint, 'validation_dice_cdet.npz'), dice_val=dice_val)
+            np.savez(os.path.join(dir_checkpoint, 'validation_dice_cdisc.npz'), dice_val=dice_val)
 
-        early_stopping(val_av_loss, val_av_dice, best_val_dice, model, epoch, optimizer, scheduler, av_loss,
-                       train_params, weights=save_weights, checkpoint=save_checkpoint, save_condition=save_case,
-                       model_path=dir_checkpoint)
+        early_stopping(val_av_loss, val_av_dice, best_val_dice, model, model_class, epoch, optimizer, scheduler,
+                       av_loss, train_params, weights=save_weights, checkpoint=save_checkpoint,
+                       save_condition=save_case, model_path=dir_checkpoint)
 
         if val_av_dice > best_val_dice:
             best_val_dice = val_av_dice
@@ -554,14 +616,14 @@ def train_cdisc_teacher(train_name_dicts, val_name_dicts, model, model_class, cr
     return model
 
 
-def train_cdisc_student(train_name_dicts, val_name_dicts, tmodel, smodel, criterion, optimizer, optimizer_class,
-                        scheduler, train_params, device, augment=True, save_checkpoint=True, save_weights=True,
-                        save_case='best', verbose=True, dir_checkpoint=None):
+def train_cdisc_student(train_name_dicts, val_name_dicts, tmodel, tmodel_class, smodel, criterion, criterion_distil,
+                        optimizer, scheduler, train_params, device, augment=True, save_checkpoint=True,
+                        save_weights=True, save_case='best', verbose=True, dir_checkpoint=None):
     """
     Microbleednet train function
     :param train_name_dicts: list of dictionaries containing training filepaths
     :param val_name_dicts: list of dictionaries containing validation filepaths
-    :param model: model
+    :param tmodel: model
     :param criterion: loss function
     :param optimizer: optimiser
     :param scheduler: learning rate scheduler
@@ -589,24 +651,35 @@ def train_cdisc_student(train_name_dicts, val_name_dicts, tmodel, smodel, criter
     losses_val = []
     dice_val = []
     acc_val = []
-    best_val_dice = 0
+    best_val_acc = 0
     gstep = 0
 
-    val_data = microbleednet_data_preparation.load_and_prepare_cmb_data_frst_ukbb(val_name_dicts,
-                                                                                  train='test',
-                                                                                  ps=24)
+    val_data = microbleednet_data_preparation.getting_cmb_data_disc_train(val_name_dicts, patch_size=24)
 
     start_epoch = 1
+    try:
+        if dir_checkpoint is not None:
+            ckpt_path_fe_teacher = os.path.join(dir_checkpoint, 'saved_model_cdisc.pth')
+            ckpt_path_class_teacher = os.path.join(dir_checkpoint, 'saved_model_cdisc_class.pth')
+        else:
+            ckpt_path_fe_teacher = os.path.join(os.getcwd(), 'saved_model_cdisc_student.pth')
+            ckpt_path_class_teacher = os.path.join(os.getcwd(), 'saved_model_cdisc_class.pth')
+        checkpoint_resumetraining = torch.load(ckpt_path_fe_teacher)
+        tmodel.load_state_dict(checkpoint_resumetraining['model_state_dict'])
+        checkpoint_resumetraining = torch.load(ckpt_path_class_teacher)
+        tmodel_class.load_state_dict(checkpoint_resumetraining['model_state_dict'])
+    except:
+        if verbose:
+            print('Not found any model to load and resume training!', flush=True)
+
     if save_resume:
         try:
             if dir_checkpoint is not None:
-                ckpt_path = os.path.join(dir_checkpoint, 'tmp_model_cdisc.pth')
-                ckpt_path_class = os.path.join(dir_checkpoint, 'tmp_model_cdisc_class.pth')
+                ckpt_path = os.path.join(dir_checkpoint, 'tmp_model_cdisc_student.pth')
             else:
-                ckpt_path = os.path.join(os.getcwd(), 'tmp_model_cdisc.pth')
-                ckpt_path_class = os.path.join(os.getcwd(), 'tmp_model_cdisc_class.pth')
+                ckpt_path = os.path.join(os.getcwd(), 'tmp_model_cdisc_student.pth')
             checkpoint_resumetraining = torch.load(ckpt_path)
-            model.load_state_dict(checkpoint_resumetraining['model_state_dict'])
+            smodel.load_state_dict(checkpoint_resumetraining['model_state_dict'])
             optimizer.load_state_dict(checkpoint_resumetraining['optimizer_state_dict'])
             scheduler.load_state_dict(checkpoint_resumetraining['scheduler_state_dict'])
             start_epoch = checkpoint_resumetraining['epoch'] + 1
@@ -615,10 +688,6 @@ def train_cdisc_student(train_name_dicts, val_name_dicts, tmodel, smodel, criter
             dice_val = checkpoint_resumetraining['dice_val']
             acc_val = checkpoint_resumetraining['acc_val']
             best_val_dice = checkpoint_resumetraining['best_val_dice']
-
-            checkpoint_resumetraining = torch.load(ckpt_path_class)
-            model_class.load_state_dict(checkpoint_resumetraining['model_state_dict'])
-            optimizer_class.load_state_dict(checkpoint_resumetraining['optimizer_state_dict'])
         except:
             if verbose:
                 print('Not found any model to load and resume training!', flush=True)
@@ -626,3 +695,128 @@ def train_cdisc_student(train_name_dicts, val_name_dicts, tmodel, smodel, criter
     print('Training started!!.......................................')
     for epoch in range(start_epoch, num_epochs + 1):
         smodel.train()
+        tmodel.eval()
+        running_class_loss = 0.0
+        running_dist_loss = 0.0
+        batch_count = 0
+        print('Epoch: ' + str(epoch) + ' starting!..............................')
+        for i in range(num_iters):
+            trainnames = train_name_dicts[i * batch_factor:(i + 1) * batch_factor]
+            print('Training files names listing...................................')
+            print(trainnames)
+            train_data = microbleednet_data_preparation.getting_cmb_data_disc_train(trainnames, patch_size=24)
+            if train_data[0].shape[1] == 64:
+                batch_size = 8
+            valdata = [val_data[0], val_data[1], val_data[2]]
+            traindata = [train_data[0], train_data[1], train_data[2]]
+            numsteps = min(traindata[0].shape[0] // batch_size, 400)
+            print('No. of mini-batches: ' + str(numsteps), flush=True)
+            gen_next_train_batch = microbleednet_utils.batch_generator(traindata, batch_size,
+                                                                       shuffle=True)
+            for j in range(numsteps):
+                smodel.train()
+                X, y = next(gen_next_train_batch)
+                X = X.transpose(0, 4, 1, 2, 3)
+                y_class = y[:, 1]
+                if verbose:
+                    print('Training dimensions.......................................')
+                    print(X.shape)
+                    print(y.shape)
+                class_weights = y_class * 100
+                class_weights = torch.from_numpy(class_weights)
+                class_weights = class_weights.to(device=device, dtype=torch.float32)
+                optimizer.zero_grad()
+                X = torch.from_numpy(X)
+                X = X.to(device=device, dtype=torch.float32)
+                teacherfe, _ = tmodel(X)
+                teacherscores = tmodel_class(teacherfe)
+                yclass_pred = smodel(X)
+                if verbose:
+                    print('Classification label and prediction dimensions.......................................')
+                    print(yclass_pred.size())
+                    print(y_class.size())
+                del X
+                del y
+                y_class = torch.from_numpy(y_class)
+                y_class = y_class.to(device=device, dtype=torch.double)
+                class_loss = criterion(yclass_pred, y_class, weight=class_weights)
+                dist_loss = criterion_distil(yclass_pred, teacherscores, y_class, 4, 0.1)
+                total_loss = class_loss + dist_loss
+                running_class_loss += class_loss.item()
+                running_dist_loss += dist_loss.item()
+                optimizer.zero_grad()
+                total_loss.backward()
+                optimizer.step()
+                gstep += 1
+
+                if verbose:
+                    if j % 100 == 0:
+                        print('Train Mini-batch: {} out of Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                            (i + 1), epoch, (j + 1) * len(X), traindata[0].shape[0],
+                                            100. * (j + 1) / traindata[0].shape[0], total_loss.item()),
+                            flush=True)
+
+                batch_count += 1
+
+            val_av_loss, val_av_acc = validate_cdisc_student(valdata, smodel, batch_size, device,
+                                                             criterion, verbose=verbose)
+            scheduler.step(val_av_acc)
+
+            av_class_loss = (running_class_loss / batch_count)  # .detach().cpu().numpy()
+            av_dist_loss = (running_dist_loss / batch_count)
+            av_loss = [av_class_loss, av_dist_loss]
+            print('Training set: Average losses: ', av_loss, flush=True)
+            losses_train.append(av_loss)
+            losses_val.append(val_av_loss)
+            acc_val.append(val_av_acc)
+
+            if save_resume:
+                if dir_checkpoint is not None:
+                    ckpt_path = os.path.join(dir_checkpoint, 'tmp_model_cdisc_student.pth')
+                else:
+                    ckpt_path = os.path.join(os.getcwd(), 'tmp_model_cdisc_student.pth')
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': smodel.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'total_loss_train': losses_train,
+                    'total_loss_val': losses_val,
+                    'dice_val': dice_val,
+                    'acc_val': acc_val,
+                    'best_val_dice': best_val_acc
+                }, ckpt_path)
+
+            if save_checkpoint:
+                np.savez(os.path.join(dir_checkpoint, 'losses_cdisc_student.npz'), train_loss=losses_train,
+                         val_loss=losses_val)
+                np.savez(os.path.join(dir_checkpoint, 'validation_dice_cdisc_student.npz'), dice_val=dice_val)
+
+            early_stopping(val_av_loss, val_av_acc, best_val_acc, smodel, epoch, optimizer, scheduler, av_loss,
+                           train_params, weights=save_weights, checkpoint=save_checkpoint, save_condition=save_case,
+                           model_path=dir_checkpoint)
+
+            if val_av_acc > best_val_acc:
+                best_val_acc = val_av_acc
+
+            if early_stopping.early_stop:
+                print('Patience Reached - Early Stopping Activated', flush=True)
+                if save_resume:
+                    if dir_checkpoint is not None:
+                        ckpt_path = os.path.join(dir_checkpoint, 'tmp_model_cdisc_student.pth')
+                    else:
+                        ckpt_path = os.path.join(os.getcwd(), 'tmp_model_cdisc_student.pth')
+                    os.remove(ckpt_path)
+                return smodel
+            #             sys.exit('Patience Reached - Early Stopping Activated')
+
+            torch.cuda.empty_cache()  # Clear memory cache
+
+        if save_resume:
+            if dir_checkpoint is not None:
+                ckpt_path = os.path.join(dir_checkpoint, 'tmp_model_cdisc_student.pth')
+            else:
+                ckpt_path = os.path.join(os.getcwd(), 'tmp_model_cdisc_student.pth')
+            os.remove(ckpt_path)
+    return smodel
+

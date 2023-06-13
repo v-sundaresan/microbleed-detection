@@ -86,3 +86,32 @@ class CombinedLoss(_Loss):
                 torch.mul(self.cross_entropy_loss.forward(input, target), weight.cuda()))
         return l1 + l2
 
+
+class DistillationLoss(_Loss):
+    """
+    A combination of dice  and cross entropy loss
+    """
+    def __init__(self):
+        super(DistillationLoss, self).__init__()
+        self.cross_entropy_loss = CrossEntropyLoss2d()
+        self.dice_loss = DiceLoss()
+
+    def forward(self, input, target, temperature, alpha, teacher_scores=None):
+        """
+        Forward pass
+        :param input: torch.tensor (NxCxHxW)
+        :param target: torch.tensor (NxHxW)
+        :param temperature: scalar
+        :param alpha: scalar
+        :param teacher_scores: torch.array
+        :return: scalar
+        """
+        p = F.log_softmax(input / temperature, dim=1)
+        q = F.softmax(teacher_scores / temperature, dim=1)
+        l_kl = F.kl_div(p, q, size_average=False) * (temperature ** 2) / input.shape[0]
+        l_ce = F.cross_entropy(input, target)
+        return l_kl * alpha + l_ce * (1. - alpha)
+
+
+
+

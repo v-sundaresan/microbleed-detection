@@ -6,8 +6,9 @@ import os
 from microbleednet.microbleed_net import (microbleednet_cdet_train_function,
                                           microbleednet_cdisc_train_function,
                                           microbleednet_test_function,
-                                          microbleednet_cdet_cross_validate, microbleednet_cdisc_cross_validate,
-                                          microbleednet_cdet_finetune, microbleednet_cdisc_finetune)
+                                          microbleednet_cross_validate,
+                                          microbleednet_cdet_finetune,
+                                          microbleednet_cdisc_finetune)
 import glob
 
 #=========================================================================================
@@ -22,9 +23,9 @@ import glob
 ##########################################################################################
 
 def train(args):
-    '''
+    """
     :param args: Input arguments from argparse
-    '''
+    """
     # Do basic sanity checks and assign variable names
     inp_dir = args.inp_dir
 
@@ -59,7 +60,7 @@ def train(args):
         else:
             raise ValueError('Manual lesion mask does not exist for ' + basename)
 
-        subj_name_dict = {'flair_path': input_paths[l],
+        subj_name_dict = {'inp_path': input_paths[l],
                           'gt_path': gt_path_name,
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
@@ -118,7 +119,6 @@ def train(args):
                        'Patience': args.early_stop_val,
                        'Aug_factor': args.aug_factor,
                        'EveryN': args.cp_everyn_N,
-                       'Nclass': args.num_classes,
                        'SaveResume': args.save_resume_training
                        }
 
@@ -130,6 +130,12 @@ def train(args):
     if args.cp_save_type not in ['best', 'last', 'everyN']:
         raise ValueError('Invalid option for checkpoint save type: Valid options: best, last, everyN')
 
+    model_dir = os.path.expandvars('$FSLDIR/data/microbleednet/models')
+    if not os.path.exists(model_dir):
+        model_dir = os.environ.get('MICROBLEEDNET_PRETRAINED_MODEL_PATH', None)
+        if model_dir is None:
+            raise RuntimeError('Cannot find teacher model;export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/model')
+
     # Training main function call
     if args.cand_detection:
         models = microbleednet_cdet_train_function.main(subj_name_dicts, training_params, aug=args.data_augmentation,
@@ -137,9 +143,10 @@ def train(args):
                                                         verbose=args.verbose, dir_cp=model_dir)
 
     if args.cand_discrimination:
-        models = microbleednet_cdisc_train_function.main(subj_name_dicts, training_params, aug=args.data_augmentation,
-                                                         save_cp=True, save_wei=save_wei, save_case=args.cp_save_type,
-                                                         verbose=args.verbose, dir_cp=model_dir)
+        models = microbleednet_cdisc_train_function.main(subj_name_dicts, training_params, model_dir=model_dir,
+                                                         aug=args.data_augmentation, save_cp=True, save_wei=save_wei,
+                                                         save_case=args.cp_save_type, verbose=args.verbose,
+                                                         dir_cp=model_dir)
 
 
 ##########################################################################################
@@ -147,9 +154,9 @@ def train(args):
 ##########################################################################################
 
 def evaluate(args):
-    '''
+    """
     :param args: Input arguments from argparse
-    '''
+    """
     # Do basic sanity checks and assign variable names
     inp_dir = args.inp_dir
     out_dir = args.output_dir
@@ -172,7 +179,7 @@ def evaluate(args):
         basepath = input_paths[l].split("_preproc.nii")[0]
         basename = basepath.split(os.sep)[-1]
 
-        subj_name_dict = {'flair_path': input_paths[l],
+        subj_name_dict = {'inp_path': input_paths[l],
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
 
@@ -183,23 +190,22 @@ def evaluate(args):
         model_name = None
         model_dir = os.path.expandvars('$FSLDIR/data/microbleednet/models')
         if not os.path.exists(model_dir):
-            model_dir = os.environ.get('microbleednet_PRETRAINED_MODEL_PATH', None)
+            model_dir = os.environ.get('MICROBLEEDNET_PRETRAINED_MODEL_PATH', None)
             if model_dir is None:
-                raise RuntimeError('Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/mwsc/model')
+                raise RuntimeError('Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/model')
     else:
-        if os.path.isfile(args.model_name + '_cdet.pth') is False or \
-                os.path.isfile(args.model_name + '_cdisc_student.pth') is False:
+        if os.path.isfile(args.model_name + '_cdet_model.pth') is False or \
+                os.path.isfile(args.model_name + '_cdisc_student_model.pth') is False:
             raise ValueError('In directory ' + os.path.dirname(args.model_name) +
-                             ', ' + os.path.basename(args.model_name) + '_cdet.pth or' +
-                             os.path.basename(args.model_name) + '_cdisc_student.pth' +
+                             ', ' + os.path.basename(args.model_name) + '_cdet_model.pth or' +
+                             os.path.basename(args.model_name) + '_cdisc_student_model.pth' +
                              'does not appear to be a valid model file')
         else:
             model_dir = os.path.dirname(args.model_name)
             model_name = os.path.basename(args.model_name)
 
     # Create the training parameters dictionary
-    eval_params = {'Nclass': args.num_classes,
-                   'EveryN': args.cp_everyn_N,
+    eval_params = {'EveryN': args.cp_everyn_N,
                    'Pretrained': args.pretrained_model,
                    'Modelname': model_name
                    }
@@ -259,7 +265,7 @@ def fine_tune(args):
         else:
             raise ValueError('Manual lesion mask does not exist for ' + basename)
 
-        subj_name_dict = {'flair_path': input_paths[l],
+        subj_name_dict = {'inp_path': input_paths[l],
                           'gt_path': gt_path_name,
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
@@ -342,7 +348,6 @@ def fine_tune(args):
                          'Patience': args.early_stop_val,
                          'Aug_factor': args.aug_factor,
                          'EveryN': args.cp_everyn_N,
-                         'Nclass': args.num_classes,
                          'Finetuning_layers': args.ft_layers,
                          'Load_type': args.cp_load_type,
                          'EveryNload': args.cpload_everyn_N,
@@ -360,23 +365,24 @@ def fine_tune(args):
 
     # Fine-tuning main function call
     if args.cand_detection:
-        microbleednet_cdet_finetune.main(subj_name_dicts, finetuning_params, aug=args.data_augmentation, weighted=weighted,
-                          save_cp=True, save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
-                          model_dir=model_dir, dir_cp=out_dir)
+        microbleednet_cdet_finetune.main(subj_name_dicts, finetuning_params, aug=args.data_augmentation,
+                                         save_cp=True, save_wei=save_wei, save_case=args.cp_save_type,
+                                         verbose=args.verbose, model_dir=model_dir, dir_cp=out_dir)
 
     if args.cand_discrimination:
-        microbleednet_cdisc_finetune.main(subj_name_dicts, finetuning_params, aug=args.data_augmentation, weighted=weighted,
-                          save_cp=True, save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
-                          model_dir=model_dir, dir_cp=out_dir)
+        microbleednet_cdisc_finetune.main(subj_name_dicts, finetuning_params, aug=args.data_augmentation, save_cp=True,
+                                          save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
+                                          model_dir=model_dir, dir_cp=out_dir)
 
 ##########################################################################################
 # Define the loo_validate (leave-one-out validation) sub-command for microbleednet
 ##########################################################################################
 
+
 def cross_validate(args):
-    '''
+    """
     :param args: Input arguments from argparse
-    '''
+    """
     # Usual sanity check for checking if filepaths and files exist.
     inp_dir = args.inp_dir
 
@@ -419,7 +425,7 @@ def cross_validate(args):
         else:
             raise ValueError('Manual lesion mask does not exist for ' + basename)
 
-        subj_name_dict = {'flair_path': input_paths[l],
+        subj_name_dict = {'inp_path': input_paths[l],
                           'gt_path': gt_path_name,
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
@@ -485,7 +491,6 @@ def cross_validate(args):
                  'Batch_factor': args.batch_factor,
                  'Patience': args.early_stop_val,
                  'Aug_factor': args.aug_factor,
-                 'Nclass': args.num_classes,
                  'EveryN': args.cp_everyn_N,
                  'SaveResume': args.save_resume_training
                  }
@@ -500,18 +505,18 @@ def cross_validate(args):
 
     if args.cp_save_type == 'everyN':
         if args.cp_everyn_N is None:
-            raise ValueError('-cp_n must be provided to specify the epoch for loading CP when using -cp_type is "everyN"!')
+            raise ValueError('-cp_n must be provided for loading CP when using -cp_type is "everyN"!')
+
+    model_dir = os.path.expandvars('$FSLDIR/data/microbleednet/models')
+    if not os.path.exists(model_dir):
+        model_dir = os.environ.get('MICROBLEEDNET_PRETRAINED_MODEL_PATH', None)
+        if model_dir is None:
+            raise RuntimeError('Cannot find teacher model;export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/model')
 
     # Cross-validation main function call
-    if args.cand_detection:
-        microbleednet_cdet_cross_validate.main(subj_name_dicts, cv_params, aug=args.data_augmentation,
-                                               intermediate=args.intermediate, save_cp=args.save_checkpoint,
-                                               save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
-                                               dir_cp=out_dir, output_dir=out_dir)
+    microbleednet_cross_validate.main(subj_name_dicts, cv_params, model_dir=model_dir, aug=args.data_augmentation,
+                                      intermediate=args.intermediate, save_cp=args.save_checkpoint,
+                                      save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
+                                      dir_cp=out_dir, output_dir=out_dir)
 
-    if args.cand_discrimination:
-        microbleednet_cdisc_cross_validate.main(subj_name_dicts, cv_params, aug=args.data_augmentation,
-                                                intermediate=args.intermediate, save_cp=args.save_checkpoint,
-                                                save_wei=save_wei, save_case=args.cp_save_type, verbose=args.verbose,
-                                                dir_cp=out_dir, output_dir=out_dir)
 

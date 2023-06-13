@@ -177,10 +177,6 @@ if __name__ == "__main__":
                                  help='No. of subjects considered for each mini-epoch (default = 10)')
     optionalNamedcv.add_argument('-psize', '--patch_size', type=int, required=False, default=48,
                                  help='Size of patches extracted for candidate detection (default = 48)')
-    optionalNamedcv.add_argument('-cand_det', '--cand_detection', type=bool, required=False, default=True,
-                                 help='Train the candidate detection (step 1) model (default = True)')
-    optionalNamedcv.add_argument('-cand_disc', '--cand_discrimination', type=bool, required=False, default=True,
-                                 help='Train the candidate discrimination (step 2) model (default = True)')
     optionalNamedcv.add_argument('-da', '--data_augmentation', type=bool, required=False, default=True,
                                  help='Applying data augmentation (default=True)')
     optionalNamedcv.add_argument('-af', '--aug_factor', type=int, required=False, default=2,

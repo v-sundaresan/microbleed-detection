@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-from microbleednetnet.true_net import (microbleednet_augmentations, microbleednet_data_preprocessing)
+from microbleednet.microbleed_net import (microbleednet_augmentations, microbleednet_data_preprocessing)
 from skimage.transform import resize
 import nibabel as nib
 import numpy as np
@@ -12,16 +12,11 @@ import nibabel as nib
 from skimage.morphology import dilation, erosion, ball
 from skimage import morphology
 from skimage import measure
-from utils import *
 from sklearn.cluster import KMeans
-from skimage.restoration import inpaint
 from scipy.ndimage import filters
 import random
 from skimage.filters import frangi
-import cmb_augmentations
 from skimage.transform import resize
-import preprocessing
-from scipy.ndimage.morphology import binary_dilation, binary_erosion
 
 #=========================================================================================
 # Microbleednet data preparation function
@@ -31,11 +26,6 @@ from scipy.ndimage.morphology import binary_dilation, binary_erosion
 
 
 def select_train_val_names(data_path, val_numbers):
-    """
-    :param data_path: list of dictionaries containing filepaths
-    :param val_numbers: array of indices
-    :return: dictionary of input arrays
-    """
     val_ids = random.choices(list(np.arange(len(data_path))), k=val_numbers)
     train_ids = np.setdiff1d(np.arange(len(data_path)), val_ids)
     data_path_train = [data_path[ind] for ind in train_ids]
@@ -43,15 +33,11 @@ def select_train_val_names(data_path, val_numbers):
     return data_path_train, data_path_val, val_ids
 
 
+def preprocess_data(data):
+    return (2 * (data / np.amax(np.reshape(data, [-1, 1])))) - 1
+
+
 def getting_cmb_manual_patches_fw(ref_man, swi, brain, frst=None, ps=32):
-    """
-    :param ref_man: input ndarray
-    :param swi: input susceptibility-weighted imaging ndarray
-    :param brain: brain ndarray
-    :param frst: (optional) input ndarray
-    :param ps: input scalar
-    :return: dictionary of ndarrays
-    """
     brain_data1 = erosion(brain, ball(2))
     if ps > 32:
         psz = ps // 2
@@ -112,13 +98,6 @@ def getting_cmb_manual_patches_fw(ref_man, swi, brain, frst=None, ps=32):
 
 
 def getting_cmb_manual_patches(ref_man, swi, brain, ps=32):
-    """
-    :param ref_man: input ndarray
-    :param swi: input susceptibility-weighted imaging ndarray
-    :param brain: brain ndarray
-    :param ps: input scalar
-    :return: dictionary of ndarrays
-    """
     brain_data1 = erosion(brain, ball(2))
     if ps > 32:
         psz = ps // 2
@@ -198,14 +177,6 @@ def getting_cmb_manual_patches(ref_man, swi, brain, ps=32):
 
 
 def getting_cmb_test_patches(ref_man, swi, brain, ps=32, pmap=None):
-    """
-    :param ref_man: input ndarray
-    :param swi: input susceptibility-weighted imaging ndarray
-    :param brain: brain ndarray
-    :param ps: input scalar
-    :param pmap: input priormap ndarray
-    :return: dictionary of ndarrays
-    """
     brain_data1 = erosion(brain, ball(2))
     ero_data1 = swi * brain_data1
     # ero_data1[ero_data1 == 0] = 0.5
@@ -260,14 +231,6 @@ def getting_cmb_test_patches(ref_man, swi, brain, ps=32, pmap=None):
 
 
 def getting_cmb_test_patches_fw(swi, brain, frst=None, ps=32, pmap=None):
-    """
-    :param swi: input susceptibility-weighted imaging ndarray
-    :param brain: brain ndarray
-    :param frst: input ndarray
-    :param ps: input scalar
-    :param pmap: input priormap ndarray
-    :return: dictionary of ndarrays
-    """
     brain_data1 = erosion(brain, ball(2))
     if ps > 32:
         psz = ps // 2
@@ -318,192 +281,28 @@ def getting_cmb_test_patches_fw(swi, brain, frst=None, ps=32, pmap=None):
     return cmb_patches, cmb_man_patches, cmb_cmb_pw, cent_patches
 
 
-def load_and_prepare_cmb_data_frst(filename, train='train', ps=32, priormap=None):
-    """
-    :param filename: list of dictionaries containing filepaths
-    :param train: string; mode for loading
-    :param ps: input scalar
-    :param priormap: input prior map ndarray
-    :return: dictionary of ndarrays
-    """
+def load_and_prepare_cmb_data_frst_ukbb(data_paths, train='train', ps=32, priormap=None):
     patch_data = np.array([])
     patch_labels = np.array([])
     patch_pws = np.array([])
-    for im in range(len(filename)):
-        data = nib.load(filename[im]).get_data().astype(float)
-        data = resize(data, [data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2], preserve_range=True)
-        try:
-            label = nib.load(filename[im][:-22] + 'CMB.nii.gz').get_data()
-            label = resize(label, [label.shape[0] // 2, label.shape[1] // 2, label.shape[2] // 2],
-                           preserve_range=True)
-            label = (label > 32768).astype(int)
-        except:
-            label = np.zeros_like(data, dtype=int)
-        # brain = nib.load(filename[im][:-7] + '_brain_mask.nii.gz').get_data().astype(int)
-        # brain = resize(brain, [brain.shape[0] // 2, brain.shape[1] // 2, brain.shape[2] // 2],
-        #                preserve_range=True)
-        brain = (data > 0).astype(int)
-        frst = np.load(filename[im][:-7] + '_frst.npy')
-        frst[np.isnan(frst)] = 0
-        crop_org_data, coords = microbleednet_data_preprocessing.tight_crop_data(data)
-        data1 = 1 - (data / np.amax(np.reshape(data, [-1, 1])))
-        data1 = data1 * brain.astype(float)
-        data1 = microbleednet_data_preprocessing.preprocess_data(data1)
-
-        crop_data = data1[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                    coords[4]:coords[4] + coords[5]]
-        labels = label[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                 coords[4]:coords[4] + coords[5]]
-        crop_brain = brain[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                     coords[4]:coords[4] + coords[5]]
-        crop_frst = frst[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                    coords[4]:coords[4] + coords[5]]
-        crop_data[crop_org_data == 0] = 0.5
-        reqd_man = labels > 0
-        if train == 'train':
-            if ps < 48:
-                patchdata, patchlabels, patchpw, _, _ = getting_cmb_manual_patches_fw(reqd_man,
-                                                                                      crop_data,
-                                                                                      crop_brain,
-                                                                                      frst=crop_frst,
-                                                                                      ps=ps)
-            else:
-                patchdata, patchlabels, patchpw, _, _ = getting_cmb_manual_patches_fw(reqd_man,
-                                                                                      crop_data,
-                                                                                      crop_brain,
-                                                                                      frst=crop_frst,
-                                                                                      ps=ps)
-            cmb_train = np.copy(patchdata)
-            if len(cmb_train.shape) > 4:
-                chn2 = 1
-            else:
-                chn2 = 0
-
-            if ps > 32:
-                psz = ps // 2
-            else:
-                psz = ps
-            augmented_img_list = []
-            augmented_mseg_list = []
-            if chn2:
-                augmented_frst_list = []
-            for idx in range(0, cmb_train.shape[0]):
-                for i in range(0, 4):
-                    manmask = patchlabels[idx, :, :, :]
-                    if chn2:
-                        image = cmb_train[idx, :, :, :, 0]
-                        frst = cmb_train[idx, :, :, :, 1]
-                        augmented_img, augmented_frst, augmented_manseg = \
-                            microbleednet_augmentations.augment2(image, frst, manmask)
-                    else:
-                        image = cmb_train[idx, :, :, :]
-                        augmented_img, augmented_manseg = microbleednet_augmentations.augment(image, manmask)
-                    augmented_img_list.append(augmented_img)
-                    augmented_mseg_list.append(augmented_manseg)
-                    if chn2:
-                        augmented_frst_list.append(augmented_frst)
-
-            augmented_mseg = np.array(augmented_mseg_list)
-            augmented_mseg = np.reshape(augmented_mseg, [-1, ps, ps, psz])
-            if chn2:
-                augmented_frst = np.array(augmented_frst_list)
-                augmented_frsts = np.reshape(augmented_frst, [-1, ps, ps, psz, 1])
-                augmented_img = np.array(augmented_img_list)
-                augmented_imgs = np.reshape(augmented_img, [-1, ps, ps, psz, 1])
-                augmented_imgs = np.concatenate((augmented_imgs, augmented_frsts), axis=-1)
-            else:
-                augmented_img = np.array(augmented_img_list)
-                augmented_imgs = np.reshape(augmented_img, [-1, ps, ps, psz])
-
-            cmb_train = np.concatenate((cmb_train, augmented_imgs), axis=0)
-            cmb_train_labs = np.concatenate((patchlabels, augmented_mseg), axis=0)
-            if chn2:
-                patchdata = cmb_train
-            else:
-                cmb_train = np.tile(cmb_train, (1, 1, 1, 1, 1))
-                patchdata = cmb_train.transpose(1, 2, 3, 4, 0)
-            patchdata[patchdata < 0] = 0
-            patchpw = filters.gaussian_filter(cmb_train_labs, 1.2) * 10
-            patch_data = np.concatenate((patch_data, patchdata), axis=0) if patch_data.size else patchdata
-            patch_labels = np.concatenate((patch_labels, cmb_train_labs),
-                                          axis=0) if patch_labels.size else cmb_train_labs
-            patch_pws = np.concatenate((patch_pws, patchpw), axis=0) if patch_pws.size else patchpw
-        elif train == 'val':
-            if ps < 48:
-                patchdata, patchlabels, patchpw, _, _ = getting_cmb_manual_patches_fw(reqd_man,
-                                                                                      crop_data,
-                                                                                      crop_brain,
-                                                                                      frst=crop_frst,
-                                                                                      ps=ps)
-            else:
-                patchdata, patchlabels, patchpw, _, _ = getting_cmb_manual_patches_fw(reqd_man,
-                                                                                      crop_data,
-                                                                                      crop_brain,
-                                                                                      frst=crop_frst,
-                                                                                      ps=ps)
-            if len(patchdata.shape) > 4:
-                chn2 = 1
-            else:
-                chn2 = 0
-
-            if chn2 == 0:
-                patchdata = np.tile(patchdata, (1, 1, 1, 1, 1))
-                patchdata = patchdata.transpose(1, 2, 3, 4, 0)
-
-            patchdata[patchdata < 0] = 0
-            patch_data = np.concatenate((patch_data, patchdata), axis=0) if patch_data.size else patchdata
-            patch_labels = np.concatenate((patch_labels, patchlabels), axis=0) if patch_labels.size else patchlabels
-            patch_pws = np.concatenate((patch_pws, patchpw), axis=0) if patch_pws.size else patchpw
-        else:
-            if priormap is not None:
-                priormap = priormap[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                           coords[4]:coords[4] + coords[5]]
-            patchdata, patchlabels, patchpw, patchcents = getting_cmb_test_patches_fw(crop_data,
-                                                                                      crop_brain, frst=crop_frst,
-                                                                                      ps=ps, pmap=priormap)
-            if len(patchdata.shape) > 4:
-                chn2 = 1
-            else:
-                chn2 = 0
-
-            if chn2 == 0:
-                patchdata = np.tile(patchdata, (1, 1, 1, 1, 1))
-                patchdata = patchdata.transpose(1, 2, 3, 4, 0)
-            patchdata[patchdata < 0] = 0
-            patch_data = np.concatenate((patch_data, patchdata), axis=0) if patch_data.size else patchdata
-            patch_labels = np.concatenate((patch_labels, patchlabels), axis=0) if patch_labels.size else patchlabels
-            patch_pws = np.concatenate((patch_pws, patchpw), axis=0) if patch_pws.size else patchpw
-
-    return [patch_data, patch_labels, patch_pws]
-
-
-def load_and_prepare_cmb_data_frst_ukbb(filename, train='train', ps=32, priormap=None):
-    """
-    :param filename: list of dictionaries containing filepaths
-    :param train: string; mode for loading
-    :param ps: input scalar
-    :param priormap: input prior map ndarray
-    :return: dictionary of ndarrays
-    """
-    patch_data = np.array([])
-    patch_labels = np.array([])
-    patch_pws = np.array([])
-    for im in range(len(filename)):
-        data = nib.load('path/to/the/input_SWI_nifti.nii.gz').get_data().astype(float)
+    for im in range(len(data_paths)):
+        inp_path = data_paths['inp_path']
+        lab_path = data_paths['gt_path']
+        data = nib.load(inp_path).get_data().astype(float)
         # data = resize(data, [data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2], preserve_range=True)
         try:
-            label = nib.load('path/to/the/input_inplabels_nifti.nii.gz').get_data()
+            label = nib.load(lab_path).get_data().astype(float)
             # label = resize(label, [label.shape[0] // 2, label.shape[1] // 2, label.shape[2] // 2], preserve_range=True)
             label = (label > 0).astype(int)
         except:
             label = np.zeros_like(data, dtype=int)
         brain = (data > 0).astype(int)
-        frst = np.load(filename[im])
+        frst = get_frst_data(data)
         frst[np.isnan(frst)] = 0
         crop_org_data, coords = microbleednet_data_preprocessing.tight_crop_data(data)
         data1 = 1 - (data / np.amax(np.reshape(data, [-1, 1])))
         data1 = data1 * brain.astype(float)
-        data1 = microbleednet_data_preprocessing.preprocess_data(data1)
+        data1 = preprocess_data(data1)
 
         crop_data = data1[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
                     coords[4]:coords[4] + coords[5]]
@@ -632,157 +431,7 @@ def load_and_prepare_cmb_data_frst_ukbb(filename, train='train', ps=32, priormap
     return [patch_data, patch_labels, patch_pws]
 
 
-def load_and_prepare_cmb_data(filename, train='train', ps=32, priormap=None):
-    """
-    :param filename: list of dictionaries containing filepaths
-    :param train: string; mode for loading
-    :param ps: input scalar
-    :param priormap: input prior map ndarray
-    :return: dictionary of ndarrays
-    """
-    patch_data = np.array([])
-    patch_labels = np.array([])
-    patch_pws = np.array([])
-    patch_cmblabs = np.array([])
-    patch_cents = []
-    for im in range(len(filename)):
-        data = nib.load(filename[im]).get_data().astype(float)
-        data = resize(data, [data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2], preserve_range=True)
-        try:
-            label = nib.load(filename[im][:-22] + 'CMB.nii.gz').get_data()
-            label = resize(label, [label.shape[0] // 2, label.shape[1] // 2, label.shape[2] // 2],
-                           preserve_range=True)
-            label = (label > 32768).astype(int)
-        except:
-            label = np.zeros_like(data, dtype=int)
-        # brain = nib.load(filename[im][:-7] + '_brain_mask.nii.gz').get_data().astype(int)
-        # brain = resize(brain, [brain.shape[0] // 2, brain.shape[1] // 2, brain.shape[2] // 2],
-        #                preserve_range=True)
-        brain = (data > 0).astype(int)
-        # print('data dimensions after loading: ', data.shape)
-        frst = get_frst_data(data)
-        crop_org_data, coords = microbleednet_data_preprocessing.tight_crop_data(data)
-        data1 = 1 - (data / np.amax(np.reshape(data, [-1, 1])))
-        data1 = data1 * brain.astype(float)
-        data1 = microbleednet_data_preprocessing.preprocess_data(data1)
-
-        crop_data = data1[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                    coords[4]:coords[4] + coords[5]]
-        labels = label[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                 coords[4]:coords[4] + coords[5]]
-        crop_brain = brain[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                     coords[4]:coords[4] + coords[5]]
-        crop_frst = frst[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                    coords[4]:coords[4] + coords[5]]
-        crop_data[crop_org_data == 0] = 0.5
-        # print('data dimensions after cropping: ', crop_data.shape)
-        reqd_man = labels > 0
-        if train == 'train':
-            if ps < 48:
-                if ps == 32:
-                    obj = np.load(filename[im][:-10] + 'patch32.npz')
-                else:
-                    obj = np.load(filename[im][:-10] + 'patch24.npz')
-                patchdata = obj['data']
-                patchlabels = obj['lab']
-                patchpw = obj['pw']
-                patchcmblabs = obj['cmblabs']
-                patchcents = obj['cents']
-            else:
-                patchdata, patchlabels, patchpw, patchcmblabs, patchcents = getting_cmb_manual_patches(reqd_man,
-                                                                                                       crop_data,
-                                                                                                       crop_brain,
-                                                                                                       ps)
-            cmb_train = np.copy(patchdata)
-            if ps > 32:
-                psz = ps // 2
-            else:
-                psz = ps
-            augmented_img_list = []
-            augmented_mseg_list = []
-            for idx in range(0, cmb_train.shape[0]):
-                for i in range(0, 2):
-                    image = cmb_train[idx, :, :, :]
-                    manmask = patchlabels[idx, :, :, :]
-                    augmented_img, augmented_manseg = microbleednet_augmentations.augment(image, manmask)
-                    augmented_img_list.append(augmented_img)
-                    augmented_mseg_list.append(augmented_manseg)
-
-            augmented_img = np.array(augmented_img_list)
-            augmented_mseg = np.array(augmented_mseg_list)
-            augmented_imgs = np.reshape(augmented_img, [-1, ps, ps, psz])
-            augmented_mseg = np.reshape(augmented_mseg, [-1, ps, ps, psz])
-
-            cmb_train = np.concatenate((cmb_train, augmented_imgs), axis=0)
-            cmb_train_labs = np.concatenate((patchlabels, augmented_mseg), axis=0)
-            cmb_train = np.tile(cmb_train, (1, 1, 1, 1, 1))
-            patchdata = cmb_train.transpose(1, 2, 3, 4, 0)
-            patchdata[patchdata < 0] = 0
-            patchpw = filters.gaussian_filter(cmb_train_labs, 1.2) * 10
-            patch_data = np.concatenate((patch_data, patchdata), axis=0) if patch_data.size else patchdata
-            patch_labels = np.concatenate((patch_labels, cmb_train_labs),
-                                          axis=0) if patch_labels.size else cmb_train_labs
-            patch_pws = np.concatenate((patch_pws, patchpw), axis=0) if patch_pws.size else patchpw
-            patch_cmblabs = np.concatenate((patch_cmblabs, patchcmblabs),
-                                           axis=0) if patch_cmblabs.size else patchcmblabs
-            patch_cents.append(patchcents)
-        elif train == 'val':
-            if ps < 48:
-                if ps == 32:
-                    obj = np.load(filename[im][:-10] + 'patch32.npz')
-                else:
-                    obj = np.load(filename[im][:-10] + 'patch24.npz')
-                patchdata = obj['data']
-                patchlabels = obj['lab']
-                patchpw = obj['pw']
-                patchcmblabs = obj['cmblabs']
-                patchcents = obj['cents']
-            else:
-                patchdata, patchlabels, patchpw, patchcmblabs, patchcents = getting_cmb_manual_patches(reqd_man,
-                                                                                                       crop_data,
-                                                                                                       crop_brain,
-                                                                                                       ps)
-            patchdata = np.tile(patchdata, (1, 1, 1, 1, 1))
-            patchdata = patchdata.transpose(1, 2, 3, 4, 0)
-            patchdata[patchdata < 0] = 0
-            patch_data = np.concatenate((patch_data, patchdata), axis=0) if patch_data.size else patchdata
-            patch_labels = np.concatenate((patch_labels, patchlabels), axis=0) if patch_labels.size else patchlabels
-            patch_pws = np.concatenate((patch_pws, patchpw), axis=0) if patch_pws.size else patchpw
-            patch_cmblabs = np.concatenate((patch_cmblabs, patchcmblabs),
-                                           axis=0) if patch_cmblabs.size else patchcmblabs
-            patch_cents.append(patchcents)
-        else:
-            if priormap is not None:
-                priormap = priormap[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
-                           coords[4]:coords[4] + coords[5]]
-            patchdata, patchlabels, patchpw, patchcmblabs, patchcents = getting_cmb_test_patches(reqd_man,
-                                                                                                 crop_data,
-                                                                                                 crop_brain,
-                                                                                                 ps,
-                                                                                                 pmap=priormap)
-            patchdata = np.tile(patchdata, (1, 1, 1, 1, 1))
-            patchdata = patchdata.transpose(1, 2, 3, 4, 0)
-            patchdata[patchdata < 0] = 0
-            patch_data = np.concatenate((patch_data, patchdata), axis=0) if patch_data.size else patchdata
-            patch_labels = np.concatenate((patch_labels, patchlabels), axis=0) if patch_labels.size else patchlabels
-            patch_pws = np.concatenate((patch_pws, patchpw), axis=0) if patch_pws.size else patchpw
-            patch_cmblabs = np.concatenate((patch_cmblabs, patchcmblabs),
-                                           axis=0) if patch_cmblabs.size else patchcmblabs
-            patch_cents.append(patchcents)
-
-    return [patch_data, patch_labels, patch_pws, patch_cmblabs, patch_cents]
-
-
 def fast_radial_symmetry_xfm(input_image, radii2d, alpha=2, factor_std=0.1, bright=False, dark=False):
-    """
-    :param input_image: input ndarray
-    :param radii2d: list of integers
-    :param alpha: input scalar
-    :param factor_std: input float
-    :param bright: bool
-    :param dark: bool
-    :return: dictionary of ndarrays
-    """
     [gx, gy] = np.gradient(input_image)
     maximum_radius = np.ceil(np.max(radii2d))
     offset_img = np.array([maximum_radius, maximum_radius]).astype(int)
@@ -828,10 +477,6 @@ def fast_radial_symmetry_xfm(input_image, radii2d, alpha=2, factor_std=0.1, brig
 
 
 def get_frst_data(data):
-    """
-    :param data: input ndarray
-    :return: frst ndarray
-    """
     radii2d = np.array([2, 3])
     frst_output = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
     for i in range(data.shape[2]):
@@ -843,10 +488,6 @@ def get_frst_data(data):
 
 
 def vessel_detection2d(inp_images2d):
-    """
-    :param inp_images2d: input ndarray
-    :return: list of ndarrays
-    """
     im1 = np.copy(inp_images2d)
     frangi_output_volume = np.zeros([im1.shape[0], im1.shape[1], im1.shape[2]])
     label_image_volume = np.zeros([im1.shape[0], im1.shape[1], im1.shape[2]])
@@ -874,11 +515,6 @@ def vessel_detection2d(inp_images2d):
 
 
 def getting_candidates_from_frst(frst, img_resize):
-    """
-    :param frst: input ndarray
-    :param img_resize: input ndarray
-    :return: list of ndarrays
-    """
     frst[np.isnan(frst)] = 0
     int95 = np.percentile(frst, 99.9)
     labfrst, nfrst = label(frst > int95, return_num=True)
@@ -901,34 +537,29 @@ def getting_candidates_from_frst(frst, img_resize):
     return filtered_frst_cands
 
 
-def getting_cmb_data_disc_train(filename, patch_size=24):
-    """
-    :param filename: input list of directories
-    :param patch_size: input scalar
-    :return: list of ndarrays
-    """
-    outdir = '/path/to/the/output/directory'
+def getting_cmb_data_disc_train(bin_map, data_paths, patch_size=24):
     all_cmb_patches = np.array([])
     all_true_labels = np.array([])
-    for im in range(len(filename)):
-        img = nib.load('path/to/the/input_SWI_nifti.nii.gz').get_data().astype(
-            float)
+    for im in range(len(data_paths)):
+        inp_path = data_paths['inp_path']
+        lab_path = data_paths['gt_path']
+        img = nib.load(inp_path).get_data().astype(float)
         # data = resize(data, [data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2], preserve_range=True)
         try:
-            gnd = nib.load('path/to/the/input_inplabel_nifti.nii.gz').get_data()
+            gnd = nib.load(lab_path).get_data().astype(float)
             # label = resize(label, [label.shape[0] // 2, label.shape[1] // 2, label.shape[2] // 2], preserve_range=True)
             gnd = (gnd > 0).astype(int)
         except:
             gnd = np.zeros_like(img, dtype=int)
-        frst = np.load(filename[im])
+        frst = get_frst_data(img)
         frst[np.isnan(frst)] = 0
 
         frst_cands = getting_candidates_from_frst(frst, img)
-        prob_maps = np.load(outdir + 'prob_maps_only48_frst_allfolds_' + filename[im][60:-9] + '.npy')
-        prob_maps[np.isnan(prob_maps)] = 0
-        predicted = np.max(prob_maps, axis=0)
-        predicted = predicted / np.amax(predicted)
-        bin_map = (predicted > 0.1).astype(float) * (frst_cands > 0).astype(float)
+        # prob_maps = np.load(outdir + 'prob_maps_only48_frst_allfolds_' + filename[im][60:-9] + '.npy')
+        # prob_maps[np.isnan(prob_maps)] = 0
+        # predicted = np.max(prob_maps, axis=0)
+        # predicted = predicted / np.amax(predicted)
+        # bin_map = (predicted > 0.1).astype(float) * (frst_cands > 0).astype(float)
         distprops = regionprops(label(bin_map[0] > 0))
         cents = np.zeros([len(distprops), 3])
         detected_cmbpatches_img = np.zeros([len(distprops), patch_size, patch_size, patch_size])
@@ -967,17 +598,11 @@ def getting_cmb_data_disc_train(filename, patch_size=24):
     return all_cmb_patches, all_true_labels
 
 
-def getting_cmb_data_disc_testing(bin_map, testname, patch_size=24):
-    """
-    :param bin_map: input ndarray
-    :param testname: input list of directories
-    :param patch_size: input scalar
-    :return: list of ndarrays
-    """
-    img = nib.load('path/to/the/input_SWI_nifti.nii.gz').get_data().astype(float)
-
+def getting_cmb_data_disc_testing(bin_map, test_data_path, patch_size=24):
+    inp_path = test_data_path['inp_path']
+    img = nib.load(inp_path).get_data().astype(float)
     # img = resize(img, [img.shape[0] // 2, img.shape[1] // 2, img.shape[2] // 2], preserve_range=True)
-    frst = np.load(testname[0])
+    frst = get_frst_data(img)
     frst[np.isnan(frst)] = 0
     distprops = regionprops(label(bin_map > 0))
     cents = np.zeros([len(distprops), 3])
@@ -1010,73 +635,3 @@ def getting_cmb_data_disc_testing(bin_map, testname, patch_size=24):
 
     return cmb_patches
 
-
-def getting_cmb_data_stonline_train(filename, patch_size=24):
-    """
-    :param filename: input list of directories
-    :param patch_size: input scalar
-    :return: list of ndarrays
-    """
-    outdir = '/path/to/the/output/directory'
-    all_cmb_patches = np.array([])
-    all_true_labels = np.array([])
-    all_gnd_patches = np.array([])
-    for im in range(len(filename)):
-        img = nib.load('path/to/the/input_SWI_nifti.nii.gz').get_data().astype(
-            float)
-        # data = resize(data, [data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2], preserve_range=True)
-        try:
-            gnd = nib.load('path/to/the/input_inplabel_nifti.nii.gz').get_data()
-            # label = resize(label, [label.shape[0] // 2, label.shape[1] // 2, label.shape[2] // 2], preserve_range=True)
-            gnd = (gnd > 0).astype(int)
-        except:
-            gnd = np.zeros_like(img, dtype=int)
-        frst = np.load(filename[im])
-        frst[np.isnan(frst)] = 0
-
-        frst_cands = getting_candidates_from_frst(frst, img)
-        prob_maps = np.load(outdir + 'prob_maps_only48_frst_allfolds_' + filename[im][60:-9] + '.npy')
-        prob_maps[np.isnan(prob_maps)] = 0
-        predicted = np.max(prob_maps, axis=0)
-        predicted = predicted / np.amax(predicted)
-        bin_map = (predicted > 0.1).astype(float) * (frst_cands > 0).astype(float)
-        distprops = regionprops(label(bin_map[0] > 0))
-        cents = np.zeros([len(distprops), 3])
-        detected_cmbpatches_img = np.zeros([len(distprops), patch_size, patch_size, patch_size])
-        detected_cmbpatches_man = np.zeros([len(distprops), patch_size, patch_size, patch_size])
-        detected_cmbpatches_frst = np.zeros([len(distprops), patch_size, patch_size, patch_size])
-        true_labels = np.zeros([len(distprops), 2])
-        ps = patch_size
-        psz = patch_size
-        for c in range(len(distprops)):
-            cents[c, :] = distprops[c].centroid
-            sx = np.amax([int(np.round(cents[c, 0])) - ps // 2, 0])
-            ex = np.amin([int(np.round(cents[c, 0])) + ps // 2, bin_map.shape[0]])
-            sy = np.amax([int(np.round(cents[c, 1])) - ps // 2, 0])
-            ey = np.amin([int(np.round(cents[c, 1])) + ps // 2, bin_map.shape[1]])
-            sz = np.amax([int(np.round(cents[c, 2])) - psz // 2, 0])
-            ez = np.amin([int(np.round(cents[c, 2])) + psz // 2, bin_map.shape[2]])
-            det_patch = img[sx:ex, sy:ey, sz:ez]
-            det_patch_frst = frst[sx:ex, sy:ey, sz:ez]
-            det_gnd_patch = gnd[sx:ex, sy:ey, sz:ez]
-            if np.sum(det_gnd_patch) > 0:
-                true_labels[c, 1] = 1
-            else:
-                true_labels[c, 0] = 1
-            detected_cmbpatches_img[c, :det_patch.shape[0], :det_patch.shape[1], :det_patch.shape[2]] = det_patch
-            detected_cmbpatches_man[c, :det_patch.shape[0], :det_patch.shape[1], :det_patch.shape[2]] = det_gnd_patch
-            detected_cmbpatches_frst[c, :det_patch.shape[0], :det_patch.shape[1], :det_patch.shape[2]] = det_patch_frst
-
-        detected_cmbpatches_img = np.tile(detected_cmbpatches_img, (1, 1, 1, 1, 1))
-        detected_cmbpatches_img = detected_cmbpatches_img.transpose(1, 2, 3, 4, 0)
-        detected_cmbpatches_frst = np.tile(detected_cmbpatches_frst, (1, 1, 1, 1, 1))
-        detected_cmbpatches_frst = detected_cmbpatches_frst.transpose(1, 2, 3, 4, 0)
-
-        cmb_patches = np.concatenate([detected_cmbpatches_img, detected_cmbpatches_frst], axis=-1)
-        all_cmb_patches = np.concatenate([all_cmb_patches, cmb_patches],
-                                         axis=0) if all_cmb_patches.size else cmb_patches
-        all_gnd_patches = np.concatenate([all_gnd_patches, detected_cmbpatches_man],
-                                         axis=0) if all_gnd_patches.size else detected_cmbpatches_man
-        all_true_labels = np.concatenate([all_true_labels, true_labels],
-                                         axis=0) if all_true_labels.size else true_labels
-    return all_cmb_patches, all_gnd_patches, all_true_labels
