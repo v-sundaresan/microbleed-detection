@@ -77,9 +77,9 @@ Compulsory arguments:
 Optional arguments:
        -tr_prop, --train_prop        Proportion of data used for training [0, 1]. The rest will be used for validation [default = 0.8]
        -bfactor, --batch_factor      Number of subjects to be considered for each mini-epoch [default = 10]
-	-psize, --patch_size 	Size of patches extracted for candidate detection [default = 48]
-  	-cand_det, —cand_detection	Train the candidate detection (step 1) model [default = True]
-	-cand_disc, —cand_discrimination 	Train the candidate discrimination (step 2) model [default = True]
+       -psize, --patch_size 	Size of patches extracted for candidate detection [default = 48]
+       -cand_det, —cand_detection	Train the candidate detection (step 1) model [default = True]
+       -cand_disc, —cand_discrimination 	Train the candidate discrimination (step 2) model [default = True]
        -da, --data_augmentation      Applying data augmentation [default = True]
        -af, --aug_factor             Data inflation factor for augmentation [default = 2]
        -sv_resume, --save_resume_training    Whether to save and resume training in case of interruptions (default-False)
@@ -120,7 +120,7 @@ Compulsory arguments:
    
 Optional arguments:
        -p, --pretrained_model                Whether to use a pre-trained model, if selected True, -m (compulsory argument will not be onsidered) [default = False]
-       -pmodel, --pretrained_model_name      Pre-trained model to be used: mwsc, ukbb [default = mwsc]
+       -pmodel, --pretrained_model           Pre-trained model to be used
        -nclass, --num_classes                Number of classes in the labels used for training the model (for both pretrained models, -nclass=2) default = 2]
        -int, --intermediate                  Saving intermediate prediction results (individual planes) for each subject [default = False]
        -cv_type, --cp_load_type              Checkpoint to be loaded. Options: best, last, everyN [default = last]
@@ -142,15 +142,15 @@ Compulsory arguments:
    
 Optional arguments:
        -p, --pretrained_model                Whether to use a pre-trained model, if selected True, -m (compulsory argument will not be considered) [default = False]
-       -pmodel, --pretrained_model_name      Pre-trained model to be used: mwsc, ukbb [default = mwsc]
+       -pmodel, --pretrained_model           Pre-trained model to be used
        -cpld_type, --cp_load_type            Checkpoint to be loaded. Options: best, last, everyN [default = last]
        -cpld_n, --cpload_everyn_N            If everyN option was chosen for loading a checkpoint, the N value [default = 10]
        -ftlayers, --ft_layers                Layers to fine-tune starting from the decoder (e.g. 1 2 -> final two two decoder layers, refer to the figure above) 
        -tr_prop, --train_prop                Proportion of data used for fine-tuning [0, 1]. The rest will be used for validation [default = 0.8]
        -bfactor, --batch_factor              Number of subjects to be considered for each mini-epoch [default = 10]
-	-psize, --patch_size 	Size of patches extracted for candidate detection [default = 48]
-  	-cand_det, —cand_detection	Train the candidate detection (step 1) model [default = True]
-	-cand_disc, —cand_discrimination 	Train the candidate discrimination (step 2) model [default = True]
+       -psize, --patch_size 	Size of patches extracted for candidate detection [default = 48]
+       -cand_det, —cand_detection	Train the candidate detection (step 1) model [default = True]
+       -cand_disc, —cand_discrimination 	Train the candidate discrimination (step 2) model [default = True]
        -da, --data_augmentation              Applying data augmentation [default = True]
        -af, --aug_factor                     Data inflation factor for augmentation [default = 2]
        -sv_resume, --save_resume_training    Whether to save and resume training in case of interruptions (default-False)
@@ -185,8 +185,8 @@ Optional arguments:
        -resume_fold, --resume_from_fold      Resume cross-validation from the specified fold (default = 1)         
        -tr_prop, --train_prop                Proportion of data used for training [0, 1]. The rest will be used for validation [default = 0.8]
        -bfactor, --batch_factor              Number of subjects to be considered for each mini-epoch [default = 10]
-	-psize, --patch_size 	Size of patches extracted for candidate detection [default = 48]
-  	-da, --data_augmentation              Applying data augmentation [default = True]
+       -psize, --patch_size 	Size of patches extracted for candidate detection [default = 48]
+       -da, --data_augmentation              Applying data augmentation [default = True]
        -af, --aug_factor                     Data inflation factor for augmentation [default = 2]
        -sv_resume, --save_resume_training    Whether to save and resume training in case of interruptions (default-False)
        -ilr, --init_learng_rate              Initial LR to use in scheduler for training [0, 0.1] [default=0.0001]
