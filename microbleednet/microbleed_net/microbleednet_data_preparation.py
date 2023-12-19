@@ -281,6 +281,79 @@ def getting_cmb_test_patches_fw(swi, brain, frst=None, ps=32, pmap=None):
     return cmb_patches, cmb_man_patches, cmb_cmb_pw, cent_patches
 
 
+def load_cmb_testdatapatches_frst(data_paths, ps=32, priormap=None):
+    inp_path = data_paths['inp_path']
+    data = nib.load(inp_path).get_fdata()
+    brain = (data > 0).astype(int)
+    frst = get_frst_data(data)
+    frst[np.isnan(frst)] = 0
+    crop_org_data, coords = microbleednet_data_preprocessing.tight_crop_data(data)
+    data1 = 1 - (data / np.amax(np.reshape(data, [-1, 1])))
+    data1 = data1 * brain.astype(float)
+    data1 = preprocess_data(data1)
+
+    crop_data = data1[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
+                coords[4]:coords[4] + coords[5]]
+    crop_brain = brain[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
+                 coords[4]:coords[4] + coords[5]]
+    crop_frst = frst[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
+                coords[4]:coords[4] + coords[5]]
+    crop_data[crop_org_data == 0] = 0.5
+
+    if priormap is not None:
+        priormap = priormap[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
+                   coords[4]:coords[4] + coords[5]]
+    patchdata, patchlabels, patchpw, patchcents = getting_cmb_test_patches_fw(crop_data,
+                                                                              crop_brain, frst=crop_frst,
+                                                                              ps=ps, pmap=priormap)
+    if len(patchdata.shape) > 4:
+        chn2 = 1
+    else:
+        chn2 = 0
+
+    if chn2 == 0:
+        patchdata = np.tile(patchdata, (1, 1, 1, 1, 1))
+        patchdata = patchdata.transpose(1, 2, 3, 4, 0)
+    patchdata[patchdata < 0] = 0
+    return patchdata
+
+
+def load_cmb_testdata_frst(data_paths):
+    print(data_paths)
+    print(len(data_paths))
+    inp_path = data_paths[0]['inp_path']
+    data = nib.load(inp_path).get_fdata()
+    brain = (data > 0).astype(int)
+    frst = get_frst_data(data)
+    frst[np.isnan(frst)] = 0
+    crop_org_data, coords = microbleednet_data_preprocessing.tight_crop_data(data)
+    data1 = 1 - (data / np.amax(np.reshape(data, [-1, 1])))
+    data1 = data1 * brain.astype(float)
+    data1 = preprocess_data(data1)
+
+    crop_data = data1[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
+                coords[4]:coords[4] + coords[5]]
+    crop_brain = brain[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
+                 coords[4]:coords[4] + coords[5]]
+    crop_frst = frst[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3],
+                coords[4]:coords[4] + coords[5]]
+    crop_data = crop_data * crop_brain
+    crop_data[crop_org_data == 0] = 0.5
+
+    cmb_data = np.concatenate([crop_data[..., np.newaxis], crop_frst[..., np.newaxis]], axis=-1)
+    if len(cmb_data.shape) > 4:
+        chn2 = 1
+    else:
+        chn2 = 0
+
+    if chn2 == 0:
+        cmb_data = np.tile(cmb_data, (1, 1, 1, 1, 1))
+        cmb_data = cmb_data.transpose(0, 4, 1, 2, 3)
+    cmb_data[cmb_data < 0] = 0
+    print(cmb_data.shape)
+    return cmb_data, brain
+
+
 def load_and_prepare_cmb_data_frst_ukbb(data_paths, train='train', ps=32, priormap=None):
     patch_data = np.array([])
     patch_labels = np.array([])
@@ -599,8 +672,8 @@ def getting_cmb_data_disc_train(bin_map, data_paths, patch_size=24):
 
 
 def getting_cmb_data_disc_testing(bin_map, test_data_path, patch_size=24):
-    inp_path = test_data_path['inp_path']
-    img = nib.load(inp_path).get_data().astype(float)
+    inp_path = test_data_path[0]['inp_path']
+    img = nib.load(inp_path).get_fdata().astype(float)
     # img = resize(img, [img.shape[0] // 2, img.shape[1] // 2, img.shape[2] // 2], preserve_range=True)
     frst = get_frst_data(img)
     frst[np.isnan(frst)] = 0
@@ -631,7 +704,7 @@ def getting_cmb_data_disc_testing(bin_map, test_data_path, patch_size=24):
     detected_cmbpatches_frst = detected_cmbpatches_frst.transpose(1, 2, 3, 4, 0)
 
     cmb_patches = np.concatenate([detected_cmbpatches_img, detected_cmbpatches_frst], axis=-1)
-    # cmb_patches = cmb_patches.transpose(0, 4, 1, 2, 3)
+    cmb_patches = cmb_patches.transpose(0, 4, 1, 2, 3)
 
     return cmb_patches
 

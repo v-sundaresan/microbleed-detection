@@ -54,29 +54,18 @@ def main(sub_name_dicts, ft_params, aug=True, save_cp=True, save_wei=True, save_
     except:
         raise ValueError("Invalid saving condition provided! Valid options: best, specific, last")
 
-    load_case = ft_params['Load_type']
-    pretrained = ft_params['Pretrained']
-
-    if pretrained:
-        try:
-            model_path_student = os.path.join(model_dir, 'Microbleednet_cdisc_student_model.pth')
-            student_model = microbleednet_utils.loading_model(model_path_student,
-                                                                    student_model, mode='full_model')
-        except:
-            raise ValueError("Invalid saving condition provided! Valid options: best, specific, last")
-    else:
-        model_name = ft_params['Modelname']
+    model_name = ft_params['Modelname']
+    try:
+        model_path_student = os.path.join(model_dir, model_name + '_cdisc_student_model.pth')
+        student_model = microbleednet_utils.loading_model(model_path_student, student_model)
+    except:
         try:
             model_path_student = os.path.join(model_dir, model_name + '_cdisc_student_model.pth')
-            student_model = microbleednet_utils.loading_model(model_path_student, student_model)
-        except:
-            try:
-                model_path_student = os.path.join(model_dir, model_name + '_cdisc_student_model.pth')
-                student_model = microbleednet_utils.loading_model(model_path_student, student_model,
-                                                                  mode='full_model')
-            except ImportError:
-                raise ImportError('In directory ' + model_dir + ', ' + model_name + 'or' +
-                                  model_name + 'does not appear to be a valid model file')
+            student_model = microbleednet_utils.loading_model(model_path_student, student_model,
+                                                              mode='full_model')
+        except ImportError:
+            raise ImportError('In directory ' + model_dir + ', ' + model_name + 'or' +
+                              model_name + 'does not appear to be a valid model file')
 
     layers_to_ft = ft_params['Finetuning_layers']  # list of numbers [1,8]
     optim_type = ft_params['Optimizer']  # adam, sgd
@@ -129,7 +118,6 @@ def main(sub_name_dicts, ft_params, aug=True, save_cp=True, save_wei=True, save_
                                                     scheduler, ft_params, device, augment=aug, save_checkpoint=save_cp,
                                                     save_weights=save_wei, save_case=save_case, verbose=verbose,
                                                     dir_checkpoint=dir_cp)
-
 
     print('Model Fine-tuning done!', flush=True)
 

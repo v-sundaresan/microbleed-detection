@@ -183,16 +183,13 @@ def evaluate(args):
                           'basename': basename}
         subj_name_dicts.append(subj_name_dict)
 
-    if args.num_classes < 1:
-        raise ValueError('Number of classes to consider in target segmentations must be an int and > 1')
-
-    if args.pretrained_model == 'True':
-        model_name = None
+    if args.model_name == 'pre':
+        model_name = 'Microbleednet'
         model_dir = os.path.expandvars('$FSLDIR/data/microbleednet/models')
         if not os.path.exists(model_dir):
             model_dir = os.environ.get('MICROBLEEDNET_PRETRAINED_MODEL_PATH', None)
             if model_dir is None:
-                raise RuntimeError('Cannot find data; export microbleednet_PRETRAINED_MODEL_PATH=/path/to/my/model')
+                raise RuntimeError('Cannot find data; export MICROBLEEDNET_PRETRAINED_MODEL_PATH=/path/to/my/model')
     else:
         if os.path.isfile(args.model_name + '_cdet_model.pth') is False or \
                 os.path.isfile(args.model_name + '_cdisc_student_model.pth') is False:
@@ -206,7 +203,6 @@ def evaluate(args):
 
     # Create the training parameters dictionary
     eval_params = {'EveryN': args.cp_everyn_N,
-                   'Pretrained': args.pretrained_model,
                    'Modelname': model_name
                    }
 
@@ -314,8 +310,8 @@ def fine_tune(args):
     else:
         save_wei = True
 
-    if args.pretrained_model == 'True':
-        model_name = None
+    if args.model_name == 'pre':
+        model_name = 'Microbleednet'
         model_dir = os.path.expandvars('$FSLDIR/data/microbleednet/models')
         if not os.path.exists(model_dir):
             model_dir = os.environ.get('microbleednet_PRETRAINED_MODEL_PATH', None)
@@ -351,7 +347,6 @@ def fine_tune(args):
                          'Finetuning_layers': args.ft_layers,
                          'Load_type': args.cp_load_type,
                          'EveryNload': args.cpload_everyn_N,
-                         'Pretrained': args.pretrained_model,
                          'Modelname': model_name,
                          'SaveResume': args.save_resume_training
                          }

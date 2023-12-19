@@ -183,8 +183,8 @@ def putting_patches_into_images_frst_ukbb(test_data_paths, prob_patches_all, ps=
         psz = ps
     print(prob_patches_all.shape)
     for im in range(len(test_data_paths)):
-        inp_path = test_data_paths['inp_path']
-        data = nib.load(inp_path).get_data().astype(float)
+        inp_path = test_data_paths[0]['inp_path']
+        data = nib.load(inp_path).get_fdata().astype(float)
         #data = resize(data, [data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2], preserve_range=True)
         prob_volume = np.zeros(data.shape)
         crop_data, coords = microbleednet_data_preprocessing.tight_crop_data(data)
@@ -193,6 +193,7 @@ def putting_patches_into_images_frst_ukbb(test_data_paths, prob_patches_all, ps=
         num_patches_y = np.ceil(crop_data.shape[1] / ps).astype(int)
         num_patches_z = np.ceil(crop_data.shape[2] / psz).astype(int)
         num_patches = num_patches_x * num_patches_y * num_patches_z
+        print(prob_patches_all.shape)
         prob_patches = prob_patches_all[st:st + num_patches, :, :, :, 1]
         c = 0
         for cz in range(num_patches_z):
@@ -223,9 +224,21 @@ def putting_patches_into_images_frst_ukbb(test_data_paths, prob_patches_all, ps=
     return prob_volumes
 
 
+def putting_outputs_into_images_frst(test_data_path, probmap3d):
+    print(probmap3d.shape)
+    inp_path = test_data_path[0]['inp_path']
+    data = nib.load(inp_path).get_fdata()
+    prob_volume = np.zeros(data.shape)
+    crop_data, coords = microbleednet_data_preprocessing.tight_crop_data(data)
+    print(prob_volume.shape)
+    print(probmap3d.shape)
+    prob_volume[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3], coords[4]:coords[4] + coords[5]] = probmap3d[0, 1, :, :, :]
+    return prob_volume
+
+
 def putting_patches_into_images_frst_ukbb_testing(test_data_paths, bin_map, prob_patches_all, ps=32):
     prob_volumes = []
-
+    prob_patches_all - np.reshape(prob_patches_all, [-1, 1])
     st = 0
     if ps > 32:
         psz = ps//2
@@ -233,14 +246,15 @@ def putting_patches_into_images_frst_ukbb_testing(test_data_paths, bin_map, prob
         psz = ps
     print(prob_patches_all.shape)
     for im in range(len(test_data_paths)):
-        inp_path = test_data_paths['inp_path']
-        data = nib.load(inp_path).get_data().astype(float)
+        inp_path = test_data_paths[0]['inp_path']
+        data = nib.load(inp_path).get_fdata().astype(float)
         #data = resize(data, [data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2], preserve_range=True)
         distprops = regionprops(label(bin_map > 0))
         cents = np.zeros([len(distprops), 3])
         prob_volume = np.zeros(data.shape)
 
-        prob_patches = prob_patches_all[st:st + len(distprops), :, :, :, 1]
+        print(prob_patches_all.shape, prob_patches_all[0].shape)
+        prob_patches = prob_patches_all[st:st + len(distprops)]
         for c in range(len(distprops)):
             cents[c, :] = distprops[c].centroid
             sx = np.amax([int(np.round(cents[c, 0])) - ps // 2, 0])
@@ -251,7 +265,7 @@ def putting_patches_into_images_frst_ukbb_testing(test_data_paths, bin_map, prob
             ez = np.amin([int(np.round(cents[c, 2])) + psz // 2, bin_map.shape[2]])
             patch = data[sx:ex, sy:ey, sz:ez]
             patchsize = patch.shape
-            reqd_patch = prob_patches[c, :patchsize[0], :patchsize[1], :patchsize[2]]
+            reqd_patch = prob_patches[c] * np.ones([patchsize[0], patchsize[1], patchsize[2]])
             prob_volume[sx:ex, sy:ey, sz:ez] = np.maximum(reqd_patch, prob_volume[sx:ex, sy:ey, sz:ez])
         prob_volumes.append(prob_volume)
     return prob_volumes
@@ -266,24 +280,24 @@ def putting_discpatches_into_images_frst_ukbb_testing(test_data_paths, bin_map, 
     else:
         psz = ps
     print(prob_patches_all.shape)
-    for im in range(len(test_data_paths)):
-        inp_path = test_data_paths['inp_path']
-        data = nib.load(inp_path).get_data().astype(float)
-        distprops = regionprops(label(bin_map > 0))
-        cents = np.zeros([len(distprops), 3])
-        prob_volume = np.zeros(data.shape)
-        prob_patches = prob_patches_all[st:st + len(distprops), :, :, :, 1]
-        for c in range(len(distprops)):
-            cents[c, :] = distprops[c].centroid
-            sx = np.amax([int(np.round(cents[c, 0])) - ps // 2, 0])
-            ex = np.amin([int(np.round(cents[c, 0])) + ps // 2, bin_map.shape[0]])
-            sy = np.amax([int(np.round(cents[c, 1])) - ps // 2, 0])
-            ey = np.amin([int(np.round(cents[c, 1])) + ps // 2, bin_map.shape[1]])
-            sz = np.amax([int(np.round(cents[c, 2])) - psz // 2, 0])
-            ez = np.amin([int(np.round(cents[c, 2])) + psz // 2, bin_map.shape[2]])
-            patch = data[sx:ex, sy:ey, sz:ez]
-            patchsize = patch.shape
-            reqd_patch = prob_patches[c, :patchsize[0], :patchsize[1], :patchsize[2]]
-            prob_volume[sx:ex, sy:ey, sz:ez] = np.maximum(reqd_patch, prob_volume[sx:ex, sy:ey, sz:ez])
-        prob_volumes.append(prob_volume)
+
+    inp_path = test_data_paths[0]['inp_path']
+    data = nib.load(inp_path).get_fdata().astype(float)
+    distprops = regionprops(label(bin_map > 0))
+    cents = np.zeros([len(distprops), 3])
+    prob_volume = np.zeros(data.shape)
+    prob_patches = prob_patches_all[st:st + len(distprops), :, :, :, 1]
+    for c in range(len(distprops)):
+        cents[c, :] = distprops[c].centroid
+        sx = np.amax([int(np.round(cents[c, 0])) - ps // 2, 0])
+        ex = np.amin([int(np.round(cents[c, 0])) + ps // 2, bin_map.shape[0]])
+        sy = np.amax([int(np.round(cents[c, 1])) - ps // 2, 0])
+        ey = np.amin([int(np.round(cents[c, 1])) + ps // 2, bin_map.shape[1]])
+        sz = np.amax([int(np.round(cents[c, 2])) - psz // 2, 0])
+        ez = np.amin([int(np.round(cents[c, 2])) + psz // 2, bin_map.shape[2]])
+        patch = data[sx:ex, sy:ey, sz:ez]
+        patchsize = patch.shape
+        reqd_patch = prob_patches[c, :patchsize[0], :patchsize[1], :patchsize[2]]
+        prob_volume[sx:ex, sy:ey, sz:ez] = np.maximum(reqd_patch, prob_volume[sx:ex, sy:ey, sz:ez])
+    prob_volumes.append(prob_volume)
     return prob_volumes

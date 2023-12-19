@@ -42,17 +42,18 @@ def evaluate_cdet(testdata, model, batch_size, device, verbose=False):
     model.eval()
     nsteps = max(testdata[0].shape[0] // batch_size, 1)
     prob_array = np.array([])
-    gen_next_test_batch = microbleednet_utils.batch_generator(testdata, batch_size, shuffle=False)
+    testdataset = microbleednet_dataset_utils.TestDataset(testdata)
+    test_dataloader = DataLoader(testdataset, batch_size=1, shuffle=False, num_workers=0)
+    # gen_next_test_batch = microbleednet_utils.batch_generator(testdata, batch_size, shuffle=False)
     with torch.no_grad():
-        for i in range(nsteps):
-            Xv = next(gen_next_test_batch)
-            Xv = Xv.transpose(0, 4, 1, 2, 3)
+        for batchidx, test_dict in enumerate(test_dataloader):
+            Xv = test_dict['input']
+            print(Xv.size())
+            # Xv = Xv.transpose(0, 4, 1, 2, 3)
             if verbose:
                 print('Validation dimensions.......................................')
                 print(Xv.shape)
-            Xv = torch.from_numpy(Xv)
             Xv = Xv.to(device=device, dtype=torch.float32)
-
             val_pred = model.forward(Xv)
             if verbose:
                 print('Validation mask dimensions........')
@@ -62,8 +63,8 @@ def evaluate_cdet(testdata, model, batch_size, device, verbose=False):
             probs_nparray = probs.detach().cpu().numpy()
 
             prob_array = np.concatenate((prob_array, probs_nparray), axis=0) if prob_array.size else probs_nparray
-
-        prob_array = prob_array.transpose(0, 2, 3, 1)
+            print(prob_array.shape)
+        # prob_array = prob_array.transpose(0, 2, 3, 1)
     return prob_array
 
 
@@ -121,22 +122,24 @@ def evaluate_cdisc_student(testdata, smodel, batch_size, device, verbose=False):
     smodel.eval()
     nsteps = max(testdata[0].shape[0] // batch_size, 1)
     pred_class_array = np.array([])
-    gen_next_test_batch = microbleednet_utils.batch_generator(testdata, batch_size, shuffle=False)
+    # gen_next_test_batch = microbleednet_utils.batch_generator(testdata, batch_size, shuffle=False)
+    testdataset = microbleednet_dataset_utils.TestDataset(testdata)
+    test_dataloader = DataLoader(testdataset, batch_size=1, shuffle=False, num_workers=0)
     with torch.no_grad():
-        for i in range(nsteps):
-            Xv = next(gen_next_test_batch)
-            Xv = Xv.transpose(0, 4, 1, 2, 3)
+        for batchidx, test_dict in enumerate(test_dataloader):
+            Xv = test_dict['input']
+            print(Xv.size())
             if verbose:
                 print('Validation dimensions.......................................')
                 print(Xv.shape)
-            Xv = torch.from_numpy(Xv)
             Xv = Xv.to(device=device, dtype=torch.float32)
-
+            print(Xv.size())
             val_class_pred = smodel.forward(Xv)
             if verbose:
                 print('Validation mask dimensions........')
                 print(val_class_pred.size())
             pred_class = np.argmax(val_class_pred.cpu().detach().numpy(), axis=1)
+            print(pred_class.shape)
             pred_class_array = np.concatenate((pred_class_array, pred_class), axis=0) \
                 if pred_class_array.size else pred_class
 
