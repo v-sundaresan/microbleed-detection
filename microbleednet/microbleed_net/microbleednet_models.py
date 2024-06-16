@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import torch.nn as nn
-from microbleednet.utils import microbleednet_model_utils
+from microbleednet.utils import model_utils
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -27,13 +27,13 @@ class CDetNet(nn.Module):
         self.n_layers = 3
         self.bilinear = bilinear
 
-        self.inpconv = microbleednet_model_utils.OutConv(n_channels, 3, name="inpconv_")
-        self.convfirst = microbleednet_model_utils.DoubleConv(3, init_channels, 3, 1, name="convfirst_")
-        self.down1 = microbleednet_model_utils.Down(init_channels, init_channels*2, 3, 1, name="down1_")
-        self.down2 = microbleednet_model_utils.Down(init_channels*2, init_channels*4, 3, 1, name="down2_")
-        self.up2 = microbleednet_model_utils.Up(init_channels*4, init_channels*2, 3, "up2_", bilinear)
-        self.up1 = microbleednet_model_utils.Up(init_channels*2, init_channels, 3, "up1_", bilinear)
-        self.outconv = microbleednet_model_utils.OutConv(init_channels, n_classes, name="outconv_")
+        self.inpconv = model_utils.OutConv(n_channels, 3, name="inpconv_")
+        self.convfirst = model_utils.DoubleConv(3, init_channels, 3, 1, name="convfirst_")
+        self.down1 = model_utils.Down(init_channels, init_channels*2, 3, 1, name="down1_")
+        self.down2 = model_utils.Down(init_channels*2, init_channels*4, 3, 1, name="down2_")
+        self.up2 = model_utils.Up(init_channels*4, init_channels*2, 3, name="up2_", bilinear=bilinear)
+        self.up1 = model_utils.Up(init_channels*2, init_channels, 3, name="up1_", bilinear=bilinear)
+        self.outconv = model_utils.OutConv(init_channels, n_classes, name="outconv_")
 
     def forward(self, x):
         xi = self.inpconv(x)
@@ -58,13 +58,13 @@ class CDiscNet(nn.Module):
         self.n_layers = 3
         self.bilinear = bilinear
 
-        self.inpconv = microbleednet_model_utils.OutConv(n_channels, 3, name="inpconv_")
-        self.convfirst = microbleednet_model_utils.DoubleConv(3, init_channels, 3, 1, name="convfirst_")
-        self.down1 = microbleednet_model_utils.Down(init_channels, init_channels * 2, 3, 1, name="down1_")
-        self.down2 = microbleednet_model_utils.Down(init_channels * 2, init_channels * 4, 3, 1, name="down2_")
-        self.up2 = microbleednet_model_utils.Up(init_channels * 4, init_channels * 2, 3, "up2_", bilinear)
-        self.up1 = microbleednet_model_utils.Up(init_channels * 2, init_channels, 3, "up1_", bilinear)
-        self.outconv = microbleednet_model_utils.OutConv(init_channels, n_classes, name="outconv_")
+        self.inpconv = model_utils.OutConv(n_channels, 3, name="inpconv_")
+        self.convfirst = model_utils.DoubleConv(3, init_channels, 3, 1, name="convfirst_")
+        self.down1 = model_utils.Down(init_channels, init_channels * 2, 3, 1, name="down1_")
+        self.down2 = model_utils.Down(init_channels * 2, init_channels * 4, 3, 1, name="down2_")
+        self.up2 = model_utils.Up(init_channels * 4, init_channels * 2, 3, "up2_", bilinear)
+        self.up1 = model_utils.Up(init_channels * 2, init_channels, 3, "up1_", bilinear)
+        self.outconv = model_utils.OutConv(init_channels, n_classes, name="outconv_")
 
     def forward(self, x):
         xi = self.inpconv(x)
@@ -89,9 +89,9 @@ class CDiscClass24(nn.Module):
         self.n_layers = 3
         self.bilinear = bilinear
 
-        self.convfirst = microbleednet_model_utils.SingleConv(init_channels, init_channels//2, 1, name="convfirst_")
-        self.down1 = microbleednet_model_utils.Down(init_channels//2, init_channels//2, 3, 3, name="down1_")
-        self.down2 = microbleednet_model_utils.Down(init_channels//2, init_channels//2, 3, 3, name="down2_")
+        self.convfirst = model_utils.SingleConv(init_channels, init_channels//2, 1, name="convfirst_")
+        self.down1 = model_utils.Down(init_channels//2, init_channels//2, 3, 3, name="down1_")
+        self.down2 = model_utils.Down(init_channels//2, init_channels//2, 3, 3, name="down2_")
         self.fc1 = nn.Linear(512*2, 128)
         self.fc2 = nn.Linear(128, 32)
         self.fc3 = nn.Linear(32, 2)
@@ -116,9 +116,9 @@ class CDiscClass32(nn.Module):
         self.n_layers = 3
         self.bilinear = bilinear
 
-        self.convfirst = microbleednet_model_utils.SingleConv(init_channels, init_channels//2, 1, name="convfirst_")
-        self.down1 = microbleednet_model_utils.Down(init_channels, init_channels, 3, 3, name="down1_")
-        self.down2 = microbleednet_model_utils.Down(init_channels, init_channels, 3, 3, name="down2_")
+        self.convfirst = model_utils.SingleConv(init_channels, init_channels//2, 1, name="convfirst_")
+        self.down1 = model_utils.Down(init_channels, init_channels, 3, 3, name="down1_")
+        self.down2 = model_utils.Down(init_channels, init_channels, 3, 3, name="down2_")
         self.fc1 = nn.Linear(512, 128)
         self.fc2 = nn.Linear(128, 32)
         self.fc3 = nn.Linear(32, 2)
@@ -143,10 +143,10 @@ class CDiscClass48(nn.Module):
         self.n_layers = 3
         self.bilinear = bilinear
 
-        self.convfirst = microbleednet_model_utils.SingleConv(init_channels, init_channels//2, 1, name="convfirst_")
-        self.down1 = microbleednet_model_utils.Down(init_channels, init_channels, 3, 3, name="down1_")
-        self.down2 = microbleednet_model_utils.Down(init_channels, init_channels, 3, 3, name="down2_")
-        self.down3 = microbleednet_model_utils.Down(init_channels, init_channels, 3, 1, name="down3_")
+        self.convfirst = model_utils.SingleConv(init_channels, init_channels//2, 1, name="convfirst_")
+        self.down1 = model_utils.Down(init_channels, init_channels, 3, 3, name="down1_")
+        self.down2 = model_utils.Down(init_channels, init_channels, 3, 3, name="down2_")
+        self.down3 = model_utils.Down(init_channels, init_channels, 3, 1, name="down3_")
         self.fc1 = nn.Linear(512, 128)
         self.fc2 = nn.Linear(128, 32)
         self.fc3 = nn.Linear(32, 2)
@@ -172,14 +172,14 @@ class CDiscStudentNet(nn.Module):
         self.n_layers = 3
         self.bilinear = bilinear
 
-        self.inpconv = microbleednet_model_utils.OutConv(n_channels, 3, name="inpconv_")
-        self.convfirst = microbleednet_model_utils.DoubleConv(3, init_channels, 3, 1, name="convfirst_")
-        self.down1 = microbleednet_model_utils.Down(init_channels, init_channels * 2, 3, 1, name="down1_")
-        self.down2 = microbleednet_model_utils.Down(init_channels * 2, init_channels * 4, 3, 1, name="down2_")
+        self.inpconv = model_utils.OutConv(n_channels, 3, name="inpconv_")
+        self.convfirst = model_utils.DoubleConv(3, init_channels, 3, 1, name="convfirst_")
+        self.down1 = model_utils.Down(init_channels, init_channels * 2, 3, 1, name="down1_")
+        self.down2 = model_utils.Down(init_channels * 2, init_channels * 4, 3, 1, name="down2_")
 
-        self.classconvfirst = microbleednet_model_utils.SingleConv(init_channels * 4, init_channels * 2, 1, name="clconvfirst_")
-        self.classdown1 = microbleednet_model_utils.Down(init_channels * 2, init_channels * 2, 3, 3, name="down1_")
-        self.classdown2 = microbleednet_model_utils.Down(init_channels * 2, init_channels * 2, 3, 3, name="down2_")
+        self.classconvfirst = model_utils.SingleConv(init_channels * 4, init_channels * 2, 1, name="clconvfirst_")
+        self.classdown1 = model_utils.Down(init_channels * 2, init_channels * 2, 3, 3, name="down1_")
+        self.classdown2 = model_utils.Down(init_channels * 2, init_channels * 2, 3, 3, name="down2_")
         # self.down3 = Down(init_channels, init_channels//2, 1)
         self.fc1 = nn.Linear(512 * 2, 128)
         self.fc2 = nn.Linear(128, 32)
