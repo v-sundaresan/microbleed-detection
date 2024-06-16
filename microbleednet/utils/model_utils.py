@@ -14,7 +14,7 @@ import torch.nn.functional as F
 class SingleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
 
-    def __init__(self, in_channels, out_channels, kernelsize, mid_channels=None):
+    def __init__(self, in_channels, out_channels, kernelsize, mid_channels=None, name=None):
         super().__init__()
         if not mid_channels:
             mid_channels = out_channels
@@ -31,7 +31,7 @@ class SingleConv(nn.Module):
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
 
-    def __init__(self, in_channels, out_channels, kernelsize1, kernelsize2, mid_channels=None):
+    def __init__(self, in_channels, out_channels, kernelsize1, kernelsize2, mid_channels=None, name=None):
         super().__init__()
         pad1 = (kernelsize1 - 1) // 2
         pad2 = (kernelsize2 - 1) // 2
@@ -53,7 +53,7 @@ class DoubleConv(nn.Module):
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
-    def __init__(self, in_channels, out_channels, kernel_size1, kernel_size2):
+    def __init__(self, in_channels, out_channels, kernel_size1, kernel_size2, name=None):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
             nn.MaxPool3d(2),
@@ -67,7 +67,7 @@ class Down(nn.Module):
 class Up(nn.Module):
     """Upscaling then double conv"""
 
-    def __init__(self, in_channels, out_channels, kernel_size, bilinear=True):
+    def __init__(self, in_channels, out_channels, kernel_size, bilinear=True, name=None):
         super().__init__()
 
         # if bilinear, use the normal convolutions to reduce the number of channels
@@ -99,7 +99,7 @@ class Up(nn.Module):
 
 
 class OutConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, name=None):
         super(OutConv, self).__init__()
         self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=1)
 

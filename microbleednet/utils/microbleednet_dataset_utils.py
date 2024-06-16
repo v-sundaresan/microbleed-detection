@@ -12,7 +12,7 @@ from torch.utils.data import Dataset
 #=========================================================================================
 
 
-class WMHTestDataset(Dataset):
+class CMBTestDataset(Dataset):
     """This is a generic class for 2D segmentation datasets.
     :param data: stack of 3D slices N x C x H x W
     :param transform: transformations to apply.
@@ -37,7 +37,7 @@ class WMHTestDataset(Dataset):
         return len(self.data)
 
 
-class WMHDataset(Dataset):
+class CMBDataset(Dataset):
     """This is a generic class for 2D segmentation datasets.
     :param data: stack of 3D slices N x C x H x W
     :param target: stack of 3D slices N x C x H x W
@@ -66,7 +66,7 @@ class WMHDataset(Dataset):
         return len(self.data)
 
 
-class WMHDatasetWeighted(Dataset):
+class CMBDatasetWeighted(Dataset):
     """This is a generic class for 2D segmentation datasets.
     :param data: stack of 3D slices N x C x H x W
     :param label: stack of 3D slices N x C x H x W

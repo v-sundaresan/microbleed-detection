@@ -42,7 +42,7 @@ def evaluate_cdet(testdata, model, batch_size, device, verbose=False):
     model.eval()
     nsteps = max(testdata[0].shape[0] // batch_size, 1)
     prob_array = np.array([])
-    testdataset = microbleednet_dataset_utils.TestDataset(testdata)
+    testdataset = microbleednet_dataset_utils.CMBTestDataset(testdata)
     test_dataloader = DataLoader(testdataset, batch_size=1, shuffle=False, num_workers=0)
     # gen_next_test_batch = microbleednet_utils.batch_generator(testdata, batch_size, shuffle=False)
     with torch.no_grad():
@@ -123,7 +123,7 @@ def evaluate_cdisc_student(testdata, smodel, batch_size, device, verbose=False):
     nsteps = max(testdata[0].shape[0] // batch_size, 1)
     pred_class_array = np.array([])
     # gen_next_test_batch = microbleednet_utils.batch_generator(testdata, batch_size, shuffle=False)
-    testdataset = microbleednet_dataset_utils.TestDataset(testdata)
+    testdataset = microbleednet_dataset_utils.CMBTestDataset(testdata)
     test_dataloader = DataLoader(testdataset, batch_size=1, shuffle=False, num_workers=0)
     with torch.no_grad():
         for batchidx, test_dict in enumerate(test_dataloader):
