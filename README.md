@@ -3,7 +3,11 @@ Automated Detection of Cerebral Microbleeds (CMBs) on MR images using Knowledge 
 
 Code for implementation of automated tool for CMB detection using knowledge detection.
 
-### Preprint link: https://www.medrxiv.org/content/10.1101/2021.11.15.21266376v1.full.pdf
+# Citation
+If you use MicrobleedNet, please cite the following papers:
+
+- Sundaresan, Vaanathi, Christoph Arthofer, Giovanna Zamboni, Andrew G. Murchison, Robert A. Dineen, Peter M. Rothwell, Dorothee P. Auer et al. "Automated detection of cerebral microbleeds on MR images using knowledge distillation framework." Frontiers in Neuroinformatics 17 (2023). [DOI: https://doi.org/10.3389/fninf.2023.1204186]
+- Sundaresan, Vaanathi, Christoph Arthofer, Giovanna Zamboni, Robert A. Dineen, Peter M. Rothwell, Stamatios N. Sotiropoulos, Dorothee P. Auer et al. "Automated detection of candidate subjects with cerebral microbleeds using machine learning." Frontiers in neuroinformatics 15 (2022): 777828. [DOI: https://doi.org/10.3389/fninf.2021.777828]
 
 This is a beta release of the code for CMB detection. Any issues please contact: vaanathi@iisc.ac.in.
 
