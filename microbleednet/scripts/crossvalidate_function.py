@@ -85,9 +85,6 @@ def main(subjects, crossvalidation_params, model_directory=None, perform_augment
 
     except:
         raise ValueError('Teacher Discriminator models not loaded correctly.')
-    
-    if type(milestones) != list:
-        milestones = [milestones]
 
     folds = crossvalidation_params['fold']  # scalar [1, N]
     res_fold = crossvalidation_params['res_fold'] - 1 # scalar [1, N]
@@ -97,7 +94,10 @@ def main(subjects, crossvalidation_params, model_directory=None, perform_augment
     learning_rate = crossvalidation_params['Learning_rate']  # scalar (0,1)
     train_proportion = crossvalidation_params['Train_prop']  # scalar (0,1)
 
-    subjects_per_fold = max(int(np.round(len(subjects) / fold)), 1)
+    if type(milestones) != list:
+        milestones = [milestones]
+
+    subjects_per_fold = max(int(np.round(len(subjects) / folds)), 1)
 
     if optimizer == 'adam':
         epsilon = crossvalidation_params['Epsilon']
@@ -119,12 +119,12 @@ def main(subjects, crossvalidation_params, model_directory=None, perform_augment
         if verbose:
             print(f'Training models for fold #{fold + 1}:')
 
-        if fold == (fold - 1):
+        if fold == (folds - 1):
             test_subject_ids = np.arange(fold * subjects_per_fold, len(subjects))
-            test_subjects = subjects[test_subject_ids]
+            test_subjects = [subjects[i] for i in test_subject_ids]
         else:
             test_subject_ids = np.arange(fold * subjects_per_fold, (fold+1) * subjects_per_fold)
-            test_subjects = subjects[test_subject_ids]
+            test_subjects = [subjects[i] for i in test_subject_ids]
 
         remaining_subject_ids = np.setdiff1d(np.arange(len(subjects)), test_subject_ids)
         remaining_subjects = [subjects[id] for id in remaining_subject_ids]
