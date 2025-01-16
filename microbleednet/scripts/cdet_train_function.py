@@ -60,7 +60,7 @@ def main(subjects, training_params, perform_augmentation=True, save_checkpoint=T
     if verbose:
         print(f'Total number of model parameters to train in CDet model: {sum([p.numel() for p in model.parameters()]) / 1e6} M')
 
-    trainable_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    trainable_parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
     if optimizer == 'adam':
         optimizer = optim.Adam(trainable_parameters, lr=learning_rate, eps=training_params['Epsilon'])
     elif optimizer == 'sgd':

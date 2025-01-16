@@ -1,5 +1,5 @@
 #!/bin/bash
 
-# Sample evaluate command, update the arguments before use
-export MICROBLEEDNET_PRETRAINED_MODEL_PATH='/home/deepika/gouriworkshere/CerebralMicrobleed/retrained_microbleednet_checkpoints'
-microbleednet fine_tune -i /home/deepika/gouriworkshere/CerebralMicrobleed/Data/CMB_Preprocessed_FRST_sum_2_3 -l /home/deepika/gouriworkshere/CerebralMicrobleed/Data/CMB_Preprocessed_FRST_sum_2_3 -o /home/deepika/gouriworkshere/CerebralMicrobleed/retrained_microbleednet_checkpoints -m pre -v=True
+# Sample finetune command, update the arguments before use
+export MICROBLEEDNET_PRETRAINED_MODEL_PATH='/path-to-pretrained-model-checkpoints'
+microbleednet fine_tune -i /directory-containing-files-preprocessed-using-microbleednet-preprocess-function -l /this-argument-is-not-actually-used-but-make-sure-to-use-a-dummy-directory -o /output-directory-for-finetuned-checkpoints -m pre -v=True

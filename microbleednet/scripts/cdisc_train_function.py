@@ -100,10 +100,11 @@ def main(subjects, training_params, model_directory=None, perform_augmentation=T
     if verbose:
         print(f'Total number of model parameters to train in CDisc student model: {sum([p.numel() for p in student_model.parameters()]) / 1e6} M')
 
+    trainable_parameters = list(filter(lambda p: p.requires_grad, student_model.parameters()))
     if optimizer == 'adam':
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, student_model.parameters()), lr=learning_rate, eps=training_params['Epsilon'])
+        optimizer = optim.Adam(trainable_parameters, lr=learning_rate, eps=training_params['Epsilon'])
     elif optimizer == 'sgd':
-        optimizer = optim.SGD(filter(lambda p: p.requires_grad, student_model.parameters()), lr=learning_rate, momentum=training_params['Momentum'])
+        optimizer = optim.SGD(trainable_parameters, lr=learning_rate, momentum=training_params['Momentum'])
 
     criterion = loss_functions.CombinedLoss()
     distillation_criterion = loss_functions.DistillationLoss()

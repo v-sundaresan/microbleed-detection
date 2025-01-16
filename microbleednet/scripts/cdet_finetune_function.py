@@ -72,7 +72,7 @@ def main(subjects, finetune_params, perform_augmentation=True, save_checkpoint=T
     model = utils.freeze_layers_for_finetuning(model, layers_to_finetune, verbose=verbose)
     model.to(device=device)
 
-    trainable_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    trainable_parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
     print(f'Total trainable parameters in candidate detection model: {sum([p.numel() for p in trainable_parameters]) / 1e6} M')
 
     if optimizer == 'adam':

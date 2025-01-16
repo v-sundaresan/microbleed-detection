@@ -83,7 +83,7 @@ def freeze_layers_for_finetuning(model, layers_to_finetune, verbose=False):
 
     model_layers_to_finetune = [model_layer_names[layer_idx - 1] for layer_idx in layers_to_finetune]
 
-    for name, child in model.module.named_children():
+    for name, child in model.named_children():
         if name in model_layers_to_finetune:
             if verbose:
                 print(f'Model parameters in {name} are unfrozen')
