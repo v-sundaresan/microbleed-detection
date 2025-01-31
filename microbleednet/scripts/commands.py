@@ -3,6 +3,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import os
+import subprocess
 import nibabel as nib
 from glob import glob
 from tqdm import tqdm
@@ -33,34 +34,60 @@ def preprocess(args):
     input_directory = args.inp_dir
     output_directory = args.out_dir
     label_directory = args.label_dir
-
     input_file_regex = args.regex
+    fsl_preprocessed = args.fsl_preprocessed
 
     # Check if input directory is valid
     if not os.path.isdir(input_directory):
         raise ValueError(f'{input_directory} does not appear to be a valid input directory')
     
-    input_paths = glob(os.path.join(input_directory, '*.nii*'))
+    input_paths = glob(os.path.join(input_directory, '**', f'*{input_file_regex}.nii*'), recursive=True)
     if len(input_paths) == 0:
-        raise ValueError(f'{input_directory} does not contain any preprocessed input images / filenames NOT in required format')
+        raise ValueError(f'{input_directory} does not contain any input images / filenames NOT in required format')
     
     # Check if label directory is valid (and if it exists)
     if label_directory is not None and os.path.isdir(label_directory) is False:
         raise ValueError(f'{label_directory} does not appear to be a valid directory')
 
-    for input_path in tqdm(input_paths, leave=False, desc='Preprocessing subjects', disable= not args.pbar):
+    for input_path in tqdm(input_paths, leave=False, desc='Preprocessing subjects', disable=False):
+
         basepath = input_path.split(input_file_regex)[0]
         basename = basepath.split(os.sep)[-1]
 
-        if label_directory is not None:
+        if not fsl_preprocessed:
+
+            subdirectory = basepath.split('/')[-2]
+            basename = subdirectory +'-' + basename
+            
+            label_directory = input_directory
+            label_extensions = ['_space-T2S_T2S_roi_f.nii', '_space-T2S_T2S_roi_f.nii.gz']
+            for extension in label_extensions:
+                label_path = basepath + extension
+                if os.path.isfile(label_path):
+                    break
+            else:
+                raise ValueError(f'Manual lesion mask does not exist for {basename}, {label_path}')
+            
+            os.makedirs(os.path.join(output_directory, 'fsl_preprocessed', 'images'), exist_ok=True)
+            fsl_image_output_path = os.path.join(output_directory, 'fsl_preprocessed', 'images', basename)
+            subprocess.run(['bash', 'skull_strip_bias_field_correct', input_path, fsl_image_output_path])
+
+            os.makedirs(os.path.join(output_directory, 'fsl_preprocessed', 'labels'), exist_ok=True)
+            label_output_path = os.path.join(output_directory, 'fsl_preprocessed', 'labels', basename + '_mask_preproc.nii.gz')
+            subprocess.run(["cp", label_path, label_output_path])
+
+            input_path = os.path.join(output_directory, 'fsl_preprocessed', 'images', basename + '_preproc.nii.gz')
+            label_path = label_output_path
+
+        elif label_directory is not None:
             # Checks if the manual label exists for the current file
-            label_extensions = ['_manualmask.nii.gz', '_manualmask.nii', '_mask.nii.gz', '_CMB.nii.gz']
+            label_extensions = ['_manualmask.nii.gz', '_manualmask.nii', '_mask.nii.gz', '_CMB.nii.gz', '_mask_preproc.nii.gz']
             for extension in label_extensions:
                 label_path = os.path.join(label_directory, basename + extension)
                 if os.path.isfile(label_path):
                     break
             else:
-                raise ValueError(f'Manual lesion mask does not exist for {basename}')
+                raise ValueError(f'Manual lesion mask does not exist for {basename}, {basename + extension}')
         
         subject = {
             'basename': basename,

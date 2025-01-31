@@ -32,6 +32,8 @@ if __name__ == "__main__":
     optionalNamedpreprocess = parser_preprocess.add_argument_group('Optional named arguments')
     optionalNamedpreprocess.add_argument('-l', '--label_dir', type=str, required=False,
                                     help='Directory containing lesion manual masks')
+    optionalNamedpreprocess.add_argument('-f', '--fsl_preprocessed', type=bool, required=False, default=False, 
+                                    help='Skull stripping and bias-field via FSL has already been applied to the input volumes')
     optionalNamedpreprocess.add_argument('-v', '--verbose', type=bool, required=False, default=False,
                                        help='Display debug messages (default=False)')
     optionalNamedpreprocess.add_argument('-pbar', '--progress_bar', type=bool, required=False, default=False,

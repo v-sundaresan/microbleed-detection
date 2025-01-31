@@ -6,7 +6,7 @@
 
 ######
 
-if [ $# -lt 3 ] ; then
+if [ $# -lt 2 ] ; then
   echo "Usage: `basename $0` <input_image_name> <output_basename>"
   echo " "
   echo "The script applies the preprocessing pipeline on the input image to be used in microbleednet with a specified output basename"
@@ -16,6 +16,7 @@ if [ $# -lt 3 ] ; then
 fi
 
 inpfile=$1
+echo $inpfile
 inpimg=`basename ${inpfile} .nii.gz`
 inpdir=`dirname ${inpfile} `
 pushd $inpdir > /dev/null
@@ -23,6 +24,7 @@ inpdir=`pwd`
 popd > /dev/null
 
 outbasename=$2
+echo $outbasename
 outname=`basename ${outbasename}`
 outdir=`dirname ${outbasename}`
 pushd $outdir > /dev/null
@@ -48,16 +50,3 @@ ${FSLDIR}/bin/imcp ${TMPVISDIR}/INPUT_brain_restore.nii.gz ${outdir}/${outname}_
 rm -r ${TMPVISDIR}
 
 exit 0
-
-
-
-
-
-
-
-
-
-
-
-
-
