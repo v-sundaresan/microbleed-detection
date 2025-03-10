@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: microbleednet
+Version: 1.0.1
+Summary: DL method for cerebral microbleed segmentation
+Author: Vaanathi Sundaresan
+Requires-Dist: nibabel
+Requires-Dist: scipy
+Requires-Dist: torch
+Requires-Dist: numpy
+Requires-Dist: scikit-image

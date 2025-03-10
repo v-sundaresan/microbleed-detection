@@ -1,12 +1,19 @@
-from setuptools import setup,find_packages
-with open('requirements.txt', 'rt') as f:
-    install_requires = [l.strip() for l in f.readlines()]
+from setuptools import setup, find_packages
 
-setup(name='microbleednet',
-	version='1.0.1',
-	description='DL method for cerebral microbleed segmentation',
-	author='Vaanathi Sundaresan',
-	install_requires=install_requires,
-    scripts=['microbleednet/scripts/microbleednet', 'microbleednet/scripts/prepare_microbleednet_data'],
+requirements_path = 'requirements.txt'
+with open(requirements_path) as file:
+    install_requires = [line.strip() for line in file.readlines()]
+
+setup(
+    name='microbleednet',
+    version='1.0.1',
+    description='DL method for cerebral microbleed segmentation',
+    author='Vaanathi Sundaresan',
+    install_requires=install_requires,
+    scripts=[
+        'microbleednet/console_commands/microbleednet',
+        'microbleednet/console_commands/prepare_microbleednet_data',
+	],
 	packages=find_packages(),
-	include_package_data=True)
+    include_package_data=True,
+)
