@@ -50,7 +50,7 @@ def preprocess(args):
     if label_directory is not None and os.path.isdir(label_directory) is False:
         raise ValueError(f'{label_directory} does not appear to be a valid directory')
 
-    for input_path in tqdm(input_paths, leave=False, desc='Preprocessing subjects', disable=True):
+    for input_path in tqdm(input_paths, leave=False, desc='Preprocessing subjects', disable=False):
 
         basepath = input_path.split(input_file_regex)[0]
         basename = basepath.split(os.sep)[-1]
