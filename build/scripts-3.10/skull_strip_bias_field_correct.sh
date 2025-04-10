@@ -16,7 +16,7 @@ if [ $# -lt 2 ] ; then
 fi
 
 inpfile=$1
-echo $inpfile
+# echo $inpfile
 inpimg=`basename ${inpfile} .nii.gz`
 inpdir=`dirname ${inpfile} `
 pushd $inpdir > /dev/null
@@ -24,7 +24,7 @@ inpdir=`pwd`
 popd > /dev/null
 
 outbasename=$2
-echo $outbasename
+# echo $outbasename
 outname=`basename ${outbasename}`
 outdir=`dirname ${outbasename}`
 pushd $outdir > /dev/null
