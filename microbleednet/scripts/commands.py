@@ -103,21 +103,22 @@ def preprocess(args):
         image, label, frst = data_preparation.preprocess_subject(subject)
 
         header = nib.load(input_path).header
+        affine = nib.load(input_path).affine
 
         os.makedirs(os.path.join(output_directory, 'images'), exist_ok=True)
         image_path = os.path.join(output_directory, 'images', basename + '_preproc.nii.gz')
-        obj = nib.nifti1.Nifti1Image(image, None, header=header)
+        obj = nib.nifti1.Nifti1Image(image, affine, header=header)
         nib.save(obj, image_path)
 
         if label_directory is not None:
             os.makedirs(os.path.join(output_directory, 'labels'), exist_ok=True)
             label_path = os.path.join(output_directory, 'labels', basename + '_mask.nii.gz')
-            obj = nib.nifti1.Nifti1Image(label, None, header=header)
+            obj = nib.nifti1.Nifti1Image(label, affine, header=header)
             nib.save(obj, label_path)
 
         os.makedirs(os.path.join(output_directory, 'frsts'), exist_ok=True)
         frst_path = os.path.join(output_directory, 'frsts', basename + '_frst.nii.gz')
-        obj = nib.nifti1.Nifti1Image(frst, None, header=header)
+        obj = nib.nifti1.Nifti1Image(frst, affine, header=header)
         nib.save(obj, frst_path)
 
     print('All subjects preprocessed.')
