@@ -30,12 +30,41 @@ For the initial CMB candidate detection, in addition to the intensity characteri
 
 The student model consists of the feature extractor and patch-level classifier parts (Tf + Tc) of the teacher model. We trained the student model in an offline manner using response-based knowledge distillation (KD). 
 
+## To install microbleednet
 
-## To install the microbleednet tool
-Clone the git repository into your local directory and run:
-``` 
-python setup.py install
+Follow these steps to install and configure microbleednet:
+
+### 1. Create a Virtual Environment (optional, but recommended):
+
+```bash
+python -m venv venv
+source venv/bin/activate # on windows: venv\Scripts\activate
 ```
+
+### 2. Clone the repository:
+
+Replace <link> below with the https link provided by GitHub
+```
+git clone <link>
+cd microbleednet-detection
+```
+
+### 3. Install dependencies and setup microbleednet:
+```
+pip install .
+```
+
+### 4. Download pre-trained checkpoints:
+
+Note: Place the checkpoints in a single directory and do not re-name the pretrained model files
+
+### 5. Test the installation:
+```
+microbleednet --help
+```
+
+## Usage Notes:
+
 To find about the subcommands available in microbleednet:
 ```
 microbleednet --help
