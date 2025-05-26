@@ -69,6 +69,14 @@ def main(subjects, evaluation_parameters, intermediate=False, model_directory=No
         image_affine = nib.load(subject['input_path']).affine
         image, label, frst, _ = data_preparation.load_subject(subject)
 
+        if intermediate:
+            os.makedirs(os.path.join(output_directory, 'input_images'), exist_ok=True)
+            save_path = os.path.join(output_directory, 'input_images', f"input_microbleednet_{subject['basename']}.nii.gz")
+            newhdr = image_header.copy()
+            newaff = image_affine.copy()
+            newobj = nib.nifti1.Nifti1Image(image, affine=newaff, header=newhdr)
+            nib.save(newobj, save_path)
+
         subject = cdet_evaluate_function.main(subject, verbose=False, model_directory=model_directory, model_name=model_name)
 
         if intermediate:
