@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import os
 import torch
+import numpy as np
 from tqdm import tqdm
 import nibabel as nib
 
@@ -60,21 +61,23 @@ def main(subjects, evaluation_parameters, intermediate=False, model_directory=No
             raise ImportError(f'In directory, {model_directory}, {model_name}_cdisc_student_model.pth or {model_name}_cdisc_student_model_weights.pth does not appear to be a valid model file.')
 
     if verbose:
-        print('Loaded CDisc weights')
+        # print('Loaded CDisc weights')
         print(f'Found {len(subjects)} subjects')
         
     for subject in tqdm(subjects, leave=False, desc='evaluating_subjects', disable=True):
 
         image_header = nib.load(subject['input_path']).header
         image_affine = nib.load(subject['input_path']).affine
-        image, label, frst, _ = data_preparation.load_subject(subject)
+        raw_image_shape = nib.load(subject['input_path']).get_fdata().shape
+        image, label, frst, crop_coords = data_preparation.load_subject(subject)
 
         if intermediate:
             os.makedirs(os.path.join(output_directory, 'input_images'), exist_ok=True)
             save_path = os.path.join(output_directory, 'input_images', f"input_microbleednet_{subject['basename']}.nii.gz")
             newhdr = image_header.copy()
             newaff = image_affine.copy()
-            newobj = nib.nifti1.Nifti1Image(image, affine=newaff, header=newhdr)
+            image_to_save = data_preparation.replace_into_volume_shape(raw_image_shape, image, crop_coords)
+            newobj = nib.nifti1.Nifti1Image(image_to_save, affine=newaff, header=newhdr)
             nib.save(newobj, save_path)
 
         subject = cdet_evaluate_function.main(subject, verbose=False, model_directory=model_directory, model_name=model_name)
@@ -84,7 +87,8 @@ def main(subjects, evaluation_parameters, intermediate=False, model_directory=No
             save_path = os.path.join(output_directory, 'cdet_predictions', f"predicted_cdet_microbleednet_{subject['basename']}.nii.gz")
             newhdr = image_header.copy()
             newaff = image_affine.copy()
-            newobj = nib.nifti1.Nifti1Image(subject['cdet_inference'], affine=newaff, header=newhdr)
+            image_to_save = data_preparation.replace_into_volume_shape(raw_image_shape, subject['cdet_inference'], crop_coords)
+            newobj = nib.nifti1.Nifti1Image(image_to_save, affine=newaff, header=newhdr)
             nib.save(newobj, save_path)
 
         subject = cdisc_evaluate_function.main(subject, verbose=verbose, model_directory=model_directory, model_name=model_name)
@@ -94,7 +98,8 @@ def main(subjects, evaluation_parameters, intermediate=False, model_directory=No
             save_path = os.path.join(output_directory, 'cdisc_predictions', f"predicted_cdisc_microbleednet_{subject['basename']}.nii.gz")
             newhdr = image_header.copy()
             newaff = image_affine.copy()
-            newobj = nib.nifti1.Nifti1Image(subject['cdisc_inference'], affine=newaff, header=newhdr)
+            image_to_save = data_preparation.replace_into_volume_shape(raw_image_shape, subject['cdisc_inference'], crop_coords)
+            newobj = nib.nifti1.Nifti1Image(image_to_save, affine=newaff, header=newhdr)
             nib.save(newobj, save_path)
 
         brain_mask = (image > 0).astype(int)
@@ -105,9 +110,11 @@ def main(subjects, evaluation_parameters, intermediate=False, model_directory=No
             save_path = os.path.join(output_directory, 'final_predictions', f"predicted_final_microbleednet_{subject['basename']}.nii.gz")
         else:
             save_path = os.path.join(output_directory, f"predicted_final_microbleednet_{subject['basename']}.nii.gz")
+
         newhdr = image_header.copy()
         newaff = image_affine.copy()
-        newobj = nib.nifti1.Nifti1Image(subject['final_inference'], affine=newaff, header=newhdr)
+        image_to_save = data_preparation.replace_into_volume_shape(raw_image_shape, subject['final_inference'], crop_coords)
+        newobj = nib.nifti1.Nifti1Image(image_to_save, affine=newaff, header=newhdr)
         nib.save(newobj, save_path)
 
     if verbose:
