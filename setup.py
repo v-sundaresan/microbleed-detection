@@ -10,9 +10,14 @@ setup(
     description='DL method for cerebral microbleed segmentation',
     author='Vaanathi Sundaresan',
     install_requires=install_requires,
+    entry_points={
+        'console_scripts': [
+            'microbleednet = microbleednet.console_commands.microbleednet:main',
+        ],
+    },
     scripts=[
-        'microbleednet/console_commands/microbleednet',
-	],
-	packages=find_packages(),
+        'microbleednet/console_commands/skull_strip_bias_field_correct.sh',
+    ],
+    packages=find_packages(),
     include_package_data=True,
 )

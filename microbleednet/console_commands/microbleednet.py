@@ -13,7 +13,7 @@ from microbleednet.documentation import help_messages
 # 14-01-2023          #
 #######################
 
-if __name__ == "__main__":
+def main():
     desc_msgs = help_messages.desc_descs()
     epilog_msgs = help_messages.epilog_descs()
     parser = argparse.ArgumentParser(prog='microbleednet', formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -27,11 +27,13 @@ if __name__ == "__main__":
                                     help='Input directory containing images to preprocess')
     requiredNamedpreprocess.add_argument('-o', '--out_dir', type=str, required=True,
                                     help='Output directory to which preprocessed images should be saved')
-    requiredNamedpreprocess.add_argument('-r', '--regex', type=str, required=True,
+    requiredNamedpreprocess.add_argument('-ir', '--image_regex', type=str, required=True,
                                     help='Common string used after the basename of an image, using which basename is found')
     optionalNamedpreprocess = parser_preprocess.add_argument_group('Optional named arguments')
     optionalNamedpreprocess.add_argument('-l', '--label_dir', type=str, required=False,
                                     help='Directory containing lesion manual masks')
+    optionalNamedpreprocess.add_argument('-lr', '--label_regex', nargs='+', type=str, required=False,
+                                    help='Common string used after the basename of an image, including extension. This is required if label_dir is provided')
     optionalNamedpreprocess.add_argument('-f', '--fsl_preprocessed', type=bool, required=False, default=False, 
                                     help='Skull stripping and bias-field via FSL has already been applied to the input volumes')
     optionalNamedpreprocess.add_argument('-v', '--verbose', type=bool, required=False, default=False,
@@ -260,3 +262,6 @@ if __name__ == "__main__":
     else:
         parser.parse_args(["--help"])
         sys.exit(0)
+
+if __name__ == "__main__":
+    main()
