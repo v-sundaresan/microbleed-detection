@@ -50,7 +50,7 @@ def preprocess(args):
     if label_directory is not None and os.path.isdir(label_directory) is False:
         raise ValueError(f'{label_directory} does not appear to be a valid directory')
 
-    for input_path in tqdm(input_paths, leave=False, desc='Preprocessing subjects', disable=True):
+    for input_path in tqdm(input_paths, leave=False, desc='Preprocessing subjects', disable=False):
 
         basepath = input_path.split(input_file_regex)[0]
         basename = basepath.split(os.sep)[-1]
@@ -103,22 +103,21 @@ def preprocess(args):
         image, label, frst = data_preparation.preprocess_subject(subject)
 
         header = nib.load(input_path).header
-        affine = nib.load(input_path).affine
 
         os.makedirs(os.path.join(output_directory, 'images'), exist_ok=True)
         image_path = os.path.join(output_directory, 'images', basename + '_preproc.nii.gz')
-        obj = nib.nifti1.Nifti1Image(image, affine, header=header)
+        obj = nib.nifti1.Nifti1Image(image, None, header=header)
         nib.save(obj, image_path)
 
         if label_directory is not None:
             os.makedirs(os.path.join(output_directory, 'labels'), exist_ok=True)
             label_path = os.path.join(output_directory, 'labels', basename + '_mask.nii.gz')
-            obj = nib.nifti1.Nifti1Image(label, affine, header=header)
+            obj = nib.nifti1.Nifti1Image(label, None, header=header)
             nib.save(obj, label_path)
 
         os.makedirs(os.path.join(output_directory, 'frsts'), exist_ok=True)
         frst_path = os.path.join(output_directory, 'frsts', basename + '_frst.nii.gz')
-        obj = nib.nifti1.Nifti1Image(frst, affine, header=header)
+        obj = nib.nifti1.Nifti1Image(frst, None, header=header)
         nib.save(obj, frst_path)
 
     print('All subjects preprocessed.')

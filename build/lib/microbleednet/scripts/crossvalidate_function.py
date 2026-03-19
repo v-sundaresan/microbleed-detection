@@ -162,7 +162,6 @@ def main(subjects, crossvalidation_params, model_directory=None, perform_augment
         for subject in tqdm(test_subjects, leave=False, disable=True):
 
             image_header = nib.load(subject['input_path']).header
-            image_affine = nib.load(subject['input_path']).affine
             image, label, frst, _ = data_preparation.load_subject(subject)
 
             subject = cdet_evaluate_function.main(subject, verbose=False, model_directory=model_directory)
@@ -171,8 +170,7 @@ def main(subjects, crossvalidation_params, model_directory=None, perform_augment
                 os.makedirs(os.path.join(output_directory, 'cdet_predictions'), exist_ok=True)
                 save_path = os.path.join(output_directory, 'cdet_predictions', f"predicted_cdet_microbleednet_{subject['basename']}.nii.gz")
                 newhdr = image_header.copy()
-                newaff = image_affine.copy()
-                newobj = nib.nifti1.Nifti1Image(subject['cdet_inference'], affine=newaff, header=newhdr)
+                newobj = nib.nifti1.Nifti1Image(subject['cdet_inference'], None, header=newhdr)
                 nib.save(newobj, save_path)
 
             subject = cdisc_evaluate_function.main(subject, verbose=verbose, model_directory=model_directory)
@@ -181,8 +179,7 @@ def main(subjects, crossvalidation_params, model_directory=None, perform_augment
                 os.makedirs(os.path.join(output_directory, 'cdisc_predictions'), exist_ok=True)
                 save_path = os.path.join(output_directory, 'cdisc_predictions', f"predicted_cdisc_microbleednet_{subject['basename']}.nii.gz")
                 newhdr = image_header.copy()
-                newaff
-                newobj = nib.nifti1.Nifti1Image(subject['cdisc_inference'], affine=newaff, header=newhdr)
+                newobj = nib.nifti1.Nifti1Image(subject['cdisc_inference'], None, header=newhdr)
                 nib.save(newobj, save_path)
 
             brain_mask = (image > 0).astype(int)
@@ -194,8 +191,7 @@ def main(subjects, crossvalidation_params, model_directory=None, perform_augment
             else:
                 save_path = os.path.join(output_directory, f"predicted_final_microbleednet_{subject['basename']}.nii.gz")
             newhdr = image_header.copy()
-            newaff = image_affine.copy()
-            newobj = nib.nifti1.Nifti1Image(subject['final_inference'], affine=newaff, header=newhdr)
+            newobj = nib.nifti1.Nifti1Image(subject['final_inference'], None, header=newhdr)
             nib.save(newobj, save_path)
 
         if verbose:

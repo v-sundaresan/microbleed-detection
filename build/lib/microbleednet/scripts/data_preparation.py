@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import re
 
 import numpy as np
 import nibabel as nib
@@ -233,12 +232,6 @@ def load_subject(subject):
     image = image[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3], coords[4]:coords[4] + coords[5]]
 
     return image, label, frst, coords
-
-def replace_into_volume_shape(volume_shape, data, coords):
-
-    replaced_volume = np.zeros(volume_shape)
-    replaced_volume[coords[0]:coords[0] + coords[1], coords[2]:coords[2] + coords[3], coords[4]:coords[4] + coords[5]] = data
-    return replaced_volume
 
 def get_nonoverlapping_patches(image, label, brain_mask, frst=None, patch_size=32):
     
